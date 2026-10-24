@@ -1,0 +1,21 @@
+name: Feature
+description: A user story to build
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      placeholder: As a <persona>, I want <capability> so that <benefit>.
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: "- Given … When … Then …"
+    validations: { required: true }
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      options: [S, M, L]

@@ -1,0 +1,37 @@
+# Generic CI: detects Node or Python. The DevOps Automator agent replaces this with the
+# stack-specific pipeline from docs/ during Sprint 1. Job name "build-test" is the required check.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Node
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Node build & test
+        if: hashFiles('package.json') != ''
+        run: |
+          npm ci
+          npm run lint --if-present
+          npm test --if-present
+          npm run build --if-present
+      - name: Python
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+        uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Python test
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+        run: |
+          pip install -r requirements.txt 2>/dev/null || pip install -e ".[dev]"
+          pip install pytest ruff
+          ruff check .
+          pytest
+      - name: Nothing to build yet
+        if: hashFiles('package.json', 'pyproject.toml', 'requirements.txt') == ''
+        run: echo "No app code yet - scaffold arrives in Sprint 1."

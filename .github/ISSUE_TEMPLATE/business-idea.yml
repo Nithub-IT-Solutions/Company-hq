@@ -1,0 +1,34 @@
+name: New business idea
+description: Submit a business idea for the agents to research (Phase 0 → Discovery)
+title: "Idea: "
+labels: ["type:idea", "phase:intake"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: Describe it in your own words. Rough is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: customer
+    attributes:
+      label: Who is it for?
+  - type: textarea
+    id: money
+    attributes:
+      label: How could it make money?
+  - type: input
+    id: budget
+    attributes:
+      label: Budget limit (build + first 6 months)
+      placeholder: e.g. $2,000
+  - type: input
+    id: timeline
+    attributes:
+      label: Target launch
+      placeholder: e.g. 3 months
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Must / must not (markets, tech, regulations)

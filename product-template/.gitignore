@@ -1,0 +1,15 @@
+# Local-only Claude settings (holds the bot token) - NEVER commit
+.claude/settings.local.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+node_modules/
+.DS_Store
+Thumbs.db
+dist/
+build/
+coverage/
+.venv/
+__pycache__/

@@ -1,0 +1,22 @@
+# Required status check: gate documents must contain the sections the CEO relies on.
+name: Gate check
+on:
+  pull_request:
+jobs:
+  gate-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check gate documents
+        run: |
+          set -e
+          fail=0
+          check() { f="$1"; shift
+            for h in "$@"; do
+              grep -q "^## .*$h" "$f" || { echo "::error file=$f::missing section '$h'"; fail=1; }
+            done; }
+          for f in $(git ls-files 'ideas/*/01-idea-brief.md'); do check "$f" "CEO Summary" "Scorecard" "Reality Check" "Decisions needed"; done
+          for f in $(git ls-files 'ideas/*/02-prd.md');        do check "$f" "CEO Summary" "User stories" "Reality Check"; done
+          for f in $(git ls-files 'ideas/*/03-project-plan.md'); do check "$f" "CEO Summary" "Issues" "Reality Check"; done
+          if grep -RInE '(sk-ant-|ghp_|github_pat_|AKIA[0-9A-Z]{16})' ideas/ ; then echo "::error::possible secret committed"; fail=1; fi
+          exit $fail

@@ -1,0 +1,6 @@
+version: 2
+# The DevOps Automator adds the app's package ecosystem (npm, pip, nuget...) in Sprint 1.
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }

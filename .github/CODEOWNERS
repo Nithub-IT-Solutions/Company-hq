@@ -1,0 +1,10 @@
+# The CEO must approve every change to these paths (enforced by branch protection
+# "Require review from Code Owners"). Agents open PRs as the bot account; the CEO approves.
+
+*                       @CEO_GITHUB_USERNAME
+/ideas/                 @CEO_GITHUB_USERNAME
+/templates/             @CEO_GITHUB_USERNAME
+/CLAUDE.md              @CEO_GITHUB_USERNAME
+/.claude/               @CEO_GITHUB_USERNAME
+/.github/               @CEO_GITHUB_USERNAME
+/product-template/      @CEO_GITHUB_USERNAME
