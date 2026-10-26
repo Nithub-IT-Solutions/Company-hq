@@ -4,9 +4,9 @@ This repository is the headquarters of an AI-staffed product company.
 The **CEO** is the only human. Every agent (subagents from agency-agents and the
 company agents in `.claude/agents/`) follows these rules. They are not optional.
 
-- CEO GitHub handle: `@nithubceoai`
+- CEO GitHub handle: `@nisarmohammadTPM`
 - GitHub organization: `Nithub-IT-Solutions`
-- Bot account that agents act as: `nithub-bot`
+- Bot account that agents act as: `nithubceoai`
 - Project board: "Company Pipeline" (org-level GitHub Project)
 
 ## 1. The pipeline and the gates

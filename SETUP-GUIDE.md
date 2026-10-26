@@ -36,6 +36,7 @@ Commands marked **PowerShell** run in Windows PowerShell. Commands marked **Git 
    git config --global user.name "Your Name"
    git config --global user.email "you@example.com"
    ```
+7. **Python 3.12** is used by the product-template CI and is needed for local Python product work. After cloning the repository in Part C, run `.\scripts\setup-windows.ps1` from PowerShell to install/check Python and verify the local tools.
 
 ---
 
