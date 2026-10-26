@@ -181,6 +181,31 @@ Check it: in Claude Code, ask "run `gh api user --jq .login`". It must print `ni
 
 ---
 
+## Optional — Run the local CEO dashboard
+
+The dashboard runs only on your PC at `http://127.0.0.1:8765`; it is not published to GitHub Pages.
+It reads organization pull requests, open issues, recent workflow runs, and the Company Pipeline project
+using GitHub CLI authenticated as the CEO. The organization project must exist before it can appear.
+
+1. In PowerShell, from the Company-hq repository, confirm GitHub CLI is signed in as the CEO:
+   ```powershell
+   gh api user --jq .login
+   ```
+   It should print `nisarmohammadTPM`. The dashboard deliberately ignores `GH_TOKEN` environment
+   variables so it does not accidentally use the local bot token.
+2. Start it:
+   ```powershell
+   .\scripts\start-dashboard.ps1
+   ```
+3. Use the browser page that opens. Idea submission first shows a preview; **Confirm and create issue**
+   creates a GitHub issue with intake labels and adds it to Company Pipeline when that project exists.
+   It does not start agent work or approve a gate.
+4. Claude chat is read-only. It sends your question and a temporary repository snapshot to Claude; local
+   settings, `.env` files, keys, and Git history are excluded. Stop the server with **Ctrl+C** in the
+   PowerShell window.
+
+---
+
 ## Part I — Daily operation (how you run the company)
 
 Open **VS Code → File → Open Folder → Company-hq**, then click the **Claude** icon (or run `claude` in the VS Code terminal).

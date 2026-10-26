@@ -6,6 +6,12 @@ Claude Code do the research, planning, building, testing and releasing through G
 
 **New here? Start with [SETUP-GUIDE.md](SETUP-GUIDE.md).**
 
+**CEO dashboard (Windows):** after installing Python 3.12 and authenticating GitHub CLI as the CEO, run
+`.\scripts\start-dashboard.ps1` from PowerShell in this repository. It opens a local-only dashboard at
+`http://127.0.0.1:8765`. The app can submit an idea as a GitHub intake issue after an explicit review
+and confirmation, view organization issues/PRs/workflow runs and the Company Pipeline project, and
+ask Claude read-only questions about a temporary repository snapshot.
+
 ## Pipeline
 
 ```mermaid
@@ -51,7 +57,8 @@ CLAUDE.md                 rules every agent follows (gates, git, never-do list)
 templates/                Idea Brief, PRD, Architecture, ADR, Threat model, Cloud cost, Test strategy, Project plan
 ideas/<slug>/             one folder per idea: all research and gate documents
 product-template/         scaffold copied into every new product repo (CI, rules, /sprint, /release)
-scripts/                  setup-labels, protect-branch, personalize, install-agents
+scripts/                  setup-labels, protect-branch, personalize, install-agents, local setup
+dashboard/                loopback-only CEO dashboard, static UI, and unit tests
 setup/agency-roster.txt   which agency-agents specialists we employ
 reports/                  CEO status reports
 ```
