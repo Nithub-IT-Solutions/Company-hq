@@ -4,9 +4,9 @@ This repository is the headquarters of an AI-staffed product company.
 The **CEO** is the only human. Every agent (subagents from agency-agents and the
 company agents in `.claude/agents/`) follows these rules. They are not optional.
 
-- CEO GitHub handle: `@CEO_GITHUB_USERNAME`
+- CEO GitHub handle: `@nithubceoai`
 - GitHub organization: `Nithub-IT-Solutions`
-- Bot account that agents act as: `BOT_GITHUB_USERNAME`
+- Bot account that agents act as: `nithub-bot`
 - Project board: "Company Pipeline" (org-level GitHub Project)
 
 ## 1. The pipeline and the gates
@@ -42,7 +42,7 @@ Check with: `git fetch origin && git ls-tree -r origin/main --name-only | grep i
 - Commits use **Conventional Commits**: `feat: …`, `fix: …`, `docs: …`, `test: …`, `chore: …`, `refactor: …`, `ci: …`. Subject ≤ 72 chars, imperative mood. Reference the issue: `feat: add signup form (#12)`.
 - One PR = one issue/purpose. Aim for < 400 changed lines; split bigger work.
 - Every PR uses `.github/pull_request_template.md`, links its issue (`Closes #N`), has the right labels, and is added to the "Company Pipeline" project.
-- Gate PRs: add the gate label + `ceo-approval`, request review from `@CEO_GITHUB_USERNAME`, and set the project Status to **CEO Approval**.
+- Gate PRs: add the gate label + `ceo-approval`, request review from `@nithubceoai`, and set the project Status to **CEO Approval**.
 
 ## 3. How agents work
 

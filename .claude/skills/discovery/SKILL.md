@@ -36,7 +36,7 @@ and writes ONLY its own file under `ideas/$ARGUMENTS/research/`:
 
 ## 3. Gate 1 PR
 - Commit (`docs: discovery and idea brief for $ARGUMENTS (#<tracking issue>)`), push.
-- `gh pr create --title "Gate 1 - Idea approval: $ARGUMENTS" --label "gate:1-idea,ceo-approval" --reviewer CEO_GITHUB_USERNAME --body "<CEO Summary + links to every research file + Refs #<issue>>"`
+- `gh pr create --title "Gate 1 - Idea approval: $ARGUMENTS" --label "gate:1-idea,ceo-approval" --reviewer nithubceoai --body "<CEO Summary + links to every research file + Refs #<issue>>"`
 - Add the PR to the project; set Status = **CEO Approval**, Phase = Discovery.
 - Comment on the tracking issue with the PR link.
 - STOP. Tell the CEO: "Approve = merge the PR. Request changes = I will run /revise. Close = idea parked."

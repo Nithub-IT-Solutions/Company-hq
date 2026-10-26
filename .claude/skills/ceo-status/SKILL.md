@@ -10,7 +10,7 @@ Produce the CEO status report. Use the `ceo-liaison` agent's status format.
    - `gh pr list --search "org:Nithub-IT-Solutions is:open label:ceo-approval" --json number,title,url,createdAt,repository` — **waiting for CEO**
    - `gh search prs --owner Nithub-IT-Solutions --state open --json title,url,repository,updatedAt` — all open PRs
    - `gh search issues --owner Nithub-IT-Solutions --state open --label "status:blocked" --json title,url,repository`
-   - `gh project item-list <PROJECT_NUMBER> --owner Nithub-IT-Solutions --format json` — board status per item
+   - `gh project item-list 7 --owner Nithub-IT-Solutions --format json` — board status per item
    - For each folder in `ideas/`: the `status:` line of `00-idea.md`
    - PRs merged in the last 7 days per repo.
 2. Write `reports/status-<YYYY-MM-DD>.md` and print it.

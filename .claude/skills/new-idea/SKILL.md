@@ -23,6 +23,6 @@ Do the following, in order:
    `Idea intake: <short name>` that closes nothing (use `Refs #N`). Labels: `phase:intake`.
    Request review from the CEO. This PR is a light check that the idea was understood; it is not a gate.
 6. Add the issue and the PR to the "Company Pipeline" project:
-   `gh project item-add <PROJECT_NUMBER> --owner Nithub-IT-Solutions --url <issue url>` (and the same for the PR).
+   `gh project item-add 7 --owner Nithub-IT-Solutions --url <issue url>` (and the same for the PR).
 7. Reply to the CEO with: the slug, issue link, PR link, the 3 clarifying questions that would most change
    the research (if any), and: "When the intake PR is merged, run `/discovery <slug>`."
