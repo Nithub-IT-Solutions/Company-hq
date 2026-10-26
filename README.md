@@ -1,64 +1,185 @@
-# Nithub IT Solutions — Company HQ
+# Company HQ
 
-The operating system of an AI-staffed product company. The CEO submits ideas and approves gates;
-specialist agents (from [agency-agents](https://github.com/msitarzewski/agency-agents)) running in
-Claude Code do the research, planning, building, testing and releasing through GitHub pull requests.
+Company HQ is the operating hub for Nithub IT Solutions' AI-assisted product-development process. It combines the company's working rules, Claude Code agent instructions, product-planning templates, GitHub automation, reusable product scaffolding, and a local CEO dashboard. Its specialist prompts are adapted from the [agency-agents project](https://github.com/msitarzewski/agency-agents) and selected for this company's workflow.
 
-**New here? Start with [SETUP-GUIDE.md](SETUP-GUIDE.md).**
+This repository is **not a deployed product application**. The dashboard is a small local web app for the CEO; GitHub remains the system of record for ideas, issues, pull requests, approvals, project tracking, and workflow runs.
 
-**CEO dashboard (Windows):** after installing Python 3.12 and authenticating GitHub CLI as the CEO, run
-`.\scripts\start-dashboard.ps1` from PowerShell in this repository. It opens a local-only dashboard at
-`http://127.0.0.1:8765`. The app can submit an idea as a GitHub intake issue after an explicit review
-and confirmation, view organization issues/PRs/workflow runs and the Company Pipeline project, and
-ask Claude read-only questions about a temporary repository snapshot.
+**New to the setup?** Follow the [Windows setup guide](SETUP-GUIDE.md).
 
-## Pipeline
+**Want to start the local dashboard?** See [Run the CEO dashboard](#run-the-ceo-dashboard).
+
+## What it does
+
+- Captures ideas and tracks them through research, product definition, planning, implementation, and release.
+- Defines human approval gates so agents prepare work but do not approve or merge it.
+- Gives Claude Code reusable company agents, specialist roles, skills, and operating rules.
+- Provides templates for idea briefs, PRDs, architecture, threat models, cost estimates, test plans, project plans, and ADRs.
+- Adds GitHub labels, PR/issue templates, branch protection helpers, and Actions workflows.
+- Provides a product template to bootstrap future product repositories.
+- Offers a CEO dashboard for organization-wide visibility, idea intake, and read-only Claude questions about the repository.
+
+## How the product process works
+
+Every idea moves through explicit stages. A gate is approved only when the CEO merges the gate PR to `main`.
 
 ```mermaid
 flowchart LR
-  A["/new-idea"] --> B["/discovery<br/>9 agents in parallel"]
-  B --> G1{"Gate 1<br/>CEO approves idea"}
-  G1 -->|merge| C["/define-product<br/>PM, UX, UI"]
-  C --> G2{"Gate 2<br/>CEO approves scope"}
-  G2 -->|merge| D["/plan-build<br/>architecture, security,<br/>DevOps, cost, tests, PM"]
-  D --> G3{"Gate 3<br/>CEO approves plan"}
-  G3 -->|merge| E["/kickoff<br/>product repo + issues"]
-  E --> F["/sprint<br/>feature PRs + reviews"]
-  F --> R{"Release gate"}
-  R -->|merge| S["/release<br/>tag + GitHub Release"]
-  G1 -.->|request changes| V["/revise"]
-  G2 -.-> V
-  G3 -.-> V
+  A["CEO submits idea"] --> B["Intake issue and idea brief"]
+  B --> C["/discovery"]
+  C --> G1{"Gate 1<br/>Idea approval"}
+  G1 -->|CEO merges| D["/define-product"]
+  D --> G2{"Gate 2<br/>Scope approval"}
+  G2 -->|CEO merges| E["/plan-build"]
+  E --> G3{"Gate 3<br/>Build plan approval"}
+  G3 -->|CEO merges| F["/kickoff"]
+  F --> G["Product repo and sprint issues"]
+  G --> H["/sprint"]
+  H --> I["Reviewed feature PRs"]
+  I --> R{"Release approval"}
+  R -->|CEO merges| S["/release"]
+  G1 -. "Request changes" .-> V["/revise"]
+  G2 -. "Request changes" .-> V
+  G3 -. "Request changes" .-> V
 ```
 
-## Org chart
+| Stage | Claude Code skill | Main output | Human decision |
+|---|---|---|---|
+| Intake | `/new-idea` | Idea record and tracking issue | Review the intake PR |
+| Discovery | `/discovery <slug>` | Market, customer, competitor, legal, financial, and technical research; Gate 1 brief | Approve, request changes, or reject |
+| Product definition | `/define-product <slug>` | PRD, MVP scope, UX/UI flows; Gate 2 PR | Approve the scope |
+| Build planning | `/plan-build <slug>` | Architecture, ADRs, threat model, cost, tests, delivery plan; Gate 3 PR | Approve the build plan |
+| Kickoff | `/kickoff <slug>` | Product repository, milestones, issues | Confirm before repository creation |
+| Sprint | `/sprint` in the product repo | Feature branches and pull requests | Review and merge code PRs |
+| Release | `/release` | Release PR, version, changelog, tag, GitHub Release | Approve and merge the release PR |
 
-| Layer | Agents |
+Agents work on branches and open pull requests. The CEO is responsible for approval and merge decisions. See [CLAUDE.md](CLAUDE.md) for the required rules and [SETUP-GUIDE.md](SETUP-GUIDE.md) for the complete setup and operating instructions.
+
+## Agent roles
+
+| Layer | Example roles |
 |---|---|
-| CEO | you (human). Approves every gate and merges every PR |
-| Executive | phase-orchestrator (COO), ceo-liaison, Chief of Staff, Reality Checker (independent QA of every gate) |
-| Discovery | Trend Researcher, Business Strategist, UX Researcher, Feedback Synthesizer, Pricing Analyst, Financial Analyst, Growth Hacker, SEO Specialist, Legal Compliance Checker |
-| Product | Product Manager, Sprint Prioritizer, UX Architect, UI Designer |
-| Architecture & PM | Software Architect, Backend Architect, Senior Project Manager, Project Shepherd |
-| Engineering | Frontend Developer, Mobile App Builder, Database Optimizer, Git Workflow Master, Technical Writer |
-| Platform & Cloud | DevOps Automator, SRE, FinOps Engineer |
-| Security | Security Architect, Application Security Engineer |
-| Quality | Code Reviewer, Test Automation Engineer, API Tester, Performance Benchmarker, Accessibility Auditor, Evidence Collector |
-| Launch | Content Creator, Growth Hacker, release-manager |
+| Executive | CEO (human approver), phase orchestrator (COO), CEO liaison, Reality Checker |
+| Discovery | Trend researcher, business strategist, UX researcher, pricing and financial analysts, legal compliance checker |
+| Product | Product manager, sprint prioritizer, UX architect, UI designer |
+| Architecture and delivery | Software and backend architects, project manager, project shepherd |
+| Engineering | Frontend and mobile developers, database optimizer, technical writer |
+| Platform and security | DevOps automator, SRE, FinOps engineer, security architect, application security engineer |
+| Quality and launch | Code reviewer, test automation engineer, API tester, accessibility auditor, content creator, release manager |
 
-## Repository layout
+The roster in `setup/agency-roster.txt` identifies external specialist prompts used by this repository. Company workflow skills decide when roles are relevant; the list is not a promise that every role runs in every phase.
 
+## Architecture
+
+```mermaid
+flowchart TB
+  CEO["CEO in VS Code / browser"]
+  Dashboard["Local dashboard<br/>Python standard library + static HTML/CSS/JS<br/>127.0.0.1:8765"]
+  GHCLI["GitHub CLI<br/>CEO's existing gh login"]
+  ClaudeCLI["Claude Code CLI<br/>read-only chat"]
+  GitHub["GitHub organization<br/>issues · PRs · project · Actions"]
+  Repo["Company-hq repository<br/>rules · skills · templates · workflows"]
+  ProductRepos["Product repositories<br/>created from product-template"]
+
+  CEO --> Dashboard
+  Dashboard --> GHCLI
+  Dashboard --> ClaudeCLI
+  GHCLI --> GitHub
+  ClaudeCLI --> Repo
+  GitHub --> Repo
+  GitHub --> ProductRepos
 ```
-CLAUDE.md                 rules every agent follows (gates, git, never-do list)
-.claude/agents/           company agents: phase-orchestrator, ceo-liaison, release-manager
-.claude/skills/           slash commands: new-idea, discovery, define-product, plan-build, kickoff, revise, ceo-status
-.claude/settings.json     guardrails: agents can't push to main, merge, force-push, or delete repos
-.github/                  CODEOWNERS (CEO approval), PR + issue templates, workflows (Claude review, @claude, gate-check)
-templates/                Idea Brief, PRD, Architecture, ADR, Threat model, Cloud cost, Test strategy, Project plan
-ideas/<slug>/             one folder per idea: all research and gate documents
-product-template/         scaffold copied into every new product repo (CI, rules, /sprint, /release)
-scripts/                  setup-labels, protect-branch, personalize, install-agents, local setup
-dashboard/                loopback-only CEO dashboard, static UI, and unit tests
-setup/agency-roster.txt   which agency-agents specialists we employ
-reports/                  CEO status reports
+
+### Main components
+
+- **GitHub is the source of truth.** Issues, pull requests, labels, branch protection, the organization project, and Actions runs are stored and managed there.
+- **Claude Code is the working agent environment.** It loads company-wide instructions from `CLAUDE.md`, agent definitions from `.claude/agents/`, and slash-command workflows from `.claude/skills/`.
+- **Specialist agent prompts** are selected from `setup/agency-roster.txt` and installed by `scripts/install-agents.sh`.
+- **The local dashboard** is a Python HTTP server using only Python's standard library. The UI is static HTML, CSS, and JavaScript under `dashboard/web/`.
+- **The dashboard delegates GitHub requests to `gh`.** It expects the GitHub CLI to be signed in as `nisarmohammadTPM`; it deliberately removes token environment variables before running `gh`.
+- **The dashboard's Claude chat is read-only.** It gives Claude a temporary copy of the repository (without `.git`, local Claude settings, environment files, or key files), disables shell/editing tools, and does not persist a Claude session.
+- **Product repos** are scaffolded from `product-template/`; their CI must be adapted to each product's actual language and build/test commands.
+
+## Run the CEO dashboard
+
+The dashboard is local to the Windows PC that runs it. It is not hosted by GitHub Pages and does not expose a public server.
+
+### Requirements
+
+- Windows and this repository cloned locally.
+- Python 3.12 (install/check with `.\scripts\setup-windows.ps1`).
+- GitHub CLI (`gh`) authenticated as the CEO account, `nisarmohammadTPM`.
+- Claude Code CLI authenticated to a Claude account to use the chat panel.
+- The organization **Company Pipeline** project for board details and adding submitted issues to the board.
+
+### Start
+
+In PowerShell, from the repository directory:
+
+```powershell
+.\scripts\start-dashboard.ps1
 ```
+
+The script starts the local server and opens `http://127.0.0.1:8765`. Keep the PowerShell window open while using it; press **Ctrl+C** there to stop the server. If necessary, install/check Python first:
+
+```powershell
+.\scripts\setup-windows.ps1
+```
+
+### Dashboard capabilities and boundaries
+
+- **Organization overview:** open pull requests, PRs requesting the configured CEO's review, open issues, recent workflow runs across visible organization repositories, and the `Company Pipeline` project when available.
+- **Idea intake:** enter a title, description, and optional audience; review the issue preview; then explicitly confirm. The dashboard creates an issue labeled `phase:intake` and `type:idea`. If the organization project exists, it tries to add the issue to that board.
+- **No automatic phase launch:** confirming an idea creates an issue only. It does not create the full idea folder/PR, start an agent, approve a gate, or merge anything. Continue the formal pipeline with the Claude Code skills described above.
+- **Claude chat:** ask read-only questions about this repository. Your question and the temporary repository snapshot are sent to Claude. The dashboard chat cannot run GitHub commands or modify repository files.
+- **GitHub access:** dashboard actions use the CEO's GitHub CLI credentials. The local bot token in `.claude/settings.local.json` is not used by dashboard GitHub requests.
+
+## Security model
+
+- Keep `.claude/settings.local.json`, `.env` files, access tokens, and API keys out of commits. The local settings file is ignored by Git; the tracked `settings.local.json.example` must contain placeholders only.
+- Revoke any credential that has been exposed. Removing it from the latest file does not erase it from Git history.
+- The dashboard binds to `127.0.0.1`, checks the local host/origin for requests, limits request sizes, validates idea content, and requires an expiring one-time confirmation before creating an issue.
+- The dashboard uses the CEO GitHub account and refuses to serve dashboard data if the active `gh` identity is not `nisarmohammadTPM`.
+- Claude chat is explicitly read-only; avoid submitting secrets, personal data, or confidential information in either ideas or chat.
+- GitHub branch protection, CODEOWNERS, and workflow permissions are still essential safeguards. A local interface is not a substitute for review and access controls.
+
+## Repository map
+
+```text
+CLAUDE.md                         Operating rules and approval gates for agents
+.claude/agents/                   Company-specific agent definitions
+.claude/skills/                   Slash commands: new-idea, discovery, define-product,
+                                  plan-build, kickoff, revise, ceo-status
+.claude/settings.json             Claude Code guardrails
+.github/CODEOWNERS                CEO ownership/review rules
+.github/ISSUE_TEMPLATE/           Idea and task intake forms
+.github/workflows/                Gate checks and Claude GitHub workflows
+dashboard/server.py               Local loopback-only dashboard API/server
+dashboard/web/                    Dashboard HTML, CSS, and JavaScript
+dashboard/tests/                  Dashboard unit tests
+ideas/                            Working documents for individual ideas
+product-template/                 Starter files for new product repositories
+scripts/                          Setup, labels, branch protection, agent, and dashboard helpers
+setup/agency-roster.txt           Curated agency-agent specialist roster
+templates/                        Idea, product, architecture, security, cost, and planning templates
+reports/                          CEO status reports
+```
+
+## Local validation
+
+Run the dashboard's unit tests with Python 3.12:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s dashboard\tests -v
+```
+
+Check the browser JavaScript syntax with Node.js:
+
+```powershell
+node --check dashboard\web\app.js
+```
+
+## Related documentation
+
+- [Setup guide](SETUP-GUIDE.md) — account setup, GitHub configuration, Claude integration, and daily operations.
+- [Agent rules](CLAUDE.md) — workflow gates, permissions, and definition of done.
+- [Product template](product-template/README.md) — starting point for a product repository.
