@@ -5,19 +5,45 @@ function Test-Command {
     return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Get-Python312 {
+    if (Test-Command "py") {
+        & py -3.12 --version *> $null
+        if ($LASTEXITCODE -eq 0) {
+            return @{
+                Command = "py"
+                Prefix = @("-3.12")
+            }
+        }
+    }
+
+    $candidates = @(
+        "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+        "$env:ProgramFiles\Python312\python.exe",
+        "${env:ProgramFiles(x86)}\Python312\python.exe"
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) {
+            $version = & $candidate --version 2>&1
+            if ($LASTEXITCODE -eq 0 -and $version -match '^Python 3\.12\.') {
+                return @{
+                    Command = $candidate
+                    Prefix = @()
+                }
+            }
+        }
+    }
+
+    return $null
+}
+
 $repoRoot = git rev-parse --show-toplevel 2>$null
 if ($LASTEXITCODE -ne 0 -or -not $repoRoot) {
     throw "Run this script from inside the Company-hq Git repository."
 }
 $repoRoot = $repoRoot.Trim()
 
-$pythonReady = $false
-if (Test-Command "py") {
-    & py -3.12 --version *> $null
-    $pythonReady = $LASTEXITCODE -eq 0
-}
-
-if (-not $pythonReady) {
+$python = Get-Python312
+if (-not $python) {
     if (-not (Test-Command "winget")) {
         throw "Python 3.12 is missing and winget is unavailable. Install Python 3.12 from python.org, then rerun this script."
     }
@@ -28,15 +54,16 @@ if (-not $pythonReady) {
         throw "winget could not install Python 3.12. Review the install output and retry."
     }
 
-    if (-not (Test-Command "py")) {
-        throw "Python was installed, but the Python launcher is not on this PowerShell PATH. Close and reopen PowerShell, then rerun this script."
+    $python = Get-Python312
+    if (-not $python) {
+        throw "Python installation completed, but a Python 3.12 executable could not be found. Close and reopen PowerShell, then rerun this script."
     }
-    & py -3.12 --version
-    if ($LASTEXITCODE -ne 0) {
-        throw "Python 3.12 is not available yet. Close and reopen PowerShell, then rerun this script."
-    }
-} else {
-    & py -3.12 --version
+}
+
+$pythonArgs = @($python.Prefix) + @("--version")
+& $python.Command @pythonArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "Python 3.12 was found but could not be run: $($python.Command)"
 }
 
 Write-Host ""
