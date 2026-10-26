@@ -101,30 +101,32 @@ Check it: **Repo → Settings → Branches** shows a rule on `main`. **Settings 
 
 1. **github.com/orgs/Nithub-IT-Solutions/projects → New project → Board** → name it **Company Pipeline**.
    The number in the URL (`…/projects/1`) is your `PROJECT_NUMBER`.
-2. **Status column**: click the **⋯** on the Status field → Edit options so they are, in this order:
+2. Run the setup script as an organization owner. In **Git Bash**:
+   ```bash
+   bash scripts/setup-project.sh Nithub-IT-Solutions 1 nithubceoai Company-hq
+   ```
+   Or in **PowerShell**:
+   ```powershell
+   & "C:\Program Files\Git\bin\bash.exe" scripts/setup-project.sh Nithub-IT-Solutions 1 nithubceoai Company-hq
+   ```
+   Replace `1` with the number from your project URL and `nithubceoai` with your bot account's username if different. The script creates missing custom fields, links the Company-hq repository, and grants the bot write access. The `project` token scope is required.
+3. **Status column**: click the **⋯** on the Status field → Edit options so they are, in this order:
    `Backlog` · `Ready` · `In Progress` · `In Review` · `CEO Approval` · `Done` · `Rejected`
-3. **Add custom fields** (top-right **⋯ → Settings → + New field**):
-   | Field | Type | Options |
-   |---|---|---|
-   | Phase | Single select | Intake, Discovery, Product, Planning, Build, Release |
-   | Gate | Single select | Gate 1, Gate 2, Gate 3, Release, — |
-   | Idea | Text | (slug) |
-   | Agent | Text | (who is working on it) |
-   | Size | Single select | S, M, L |
-   | Sprint | Iteration | 2 weeks |
-4. **Views** (tabs at the top, **+ New view**):
+4. **Add the Sprint field** (top-right **⋯ → Settings → + New field**; the CLI does not support iteration fields):
+   - **Sprint** — Iteration — 2 weeks
+5. **Views** (tabs at the top, **+ New view**):
    - **Pipeline** (Board): group by Status. Your main screen.
    - **CEO Approval** (Table): filter `label:ceo-approval is:open`, sort by created date, oldest first. **Your inbox.**
    - **By Idea** (Board): group by Phase, filter `label:type:idea`.
    - **Sprint** (Board): filter `iteration:@current`, group by Status.
    - **Roadmap** (Roadmap layout): by Sprint.
-5. **Automations** (**⋯ → Workflows**): enable
+6. **Automations** (**⋯ → Workflows**): enable
    - *Item added to project* → Status **Backlog**
    - *Item closed* → **Done**
    - *Pull request merged* → **Done**
    - *Auto-add to project* → repository **Company-hq**, filter `is:issue,pr is:open` (add one rule per product repo later)
-6. **Project settings → Manage access**: add `nithub-bot` as **Write** so agents can update cards.
-7. If you used a placeholder project number in Part C, run `bash scripts/personalize.sh` again or edit the files, then commit through a PR.
+7. **Project settings → Manage access**: verify your bot account has **Write** access.
+8. If you used a placeholder project number in Part C, run `bash scripts/personalize.sh` again or edit the files, then commit through a PR.
 
 ---
 
