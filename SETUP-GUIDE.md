@@ -8,7 +8,7 @@ Commands marked **PowerShell** run in Windows PowerShell. Commands marked **Git 
 | Role | GitHub account | Does what |
 |---|---|---|
 | CEO (you) | your normal account, **Owner** of `Nithub-IT-Solutions` | submits ideas, reviews and **approves and merges** gate PRs and code PRs |
-| Agents | a second account, e.g. `nithub-bot`, **Member with Write** | commits, pushes branches, opens PRs, comments. Can never merge to `main` |
+| Agents | a second account, e.g. `nithubceoai`, **Member with Write** | commits, pushes branches, opens PRs, comments. Can never merge to `main` |
 | Claude GitHub App | `claude[bot]` | automatic PR reviews, answers `@claude` comments |
 
 > **Why a bot account?** GitHub never lets the author of a PR approve their own PR. If the agents used *your* login, every PR would be "yours" and you could not approve it. Real companies use a service account for automation for the same reason.
@@ -42,12 +42,12 @@ Commands marked **PowerShell** run in Windows PowerShell. Commands marked **Git 
 
 ## Part B — Create the bot account (10 min)
 
-1. Sign out of GitHub in a private browser window and **sign up** for a new account, e.g. `nithub-bot`.
+1. Sign out of GitHub in a private browser window and **sign up** for a new account, e.g. `nithubceoai`.
    Gmail tip: `yourname+bot@gmail.com` delivers to your normal inbox and counts as a separate email for GitHub.
-2. As the CEO: go to **github.com/orgs/Nithub-IT-Solutions/people → Invite member** → `nithub-bot` → role **Member**. Accept the invite in the bot's browser window.
+2. As the CEO: go to **github.com/orgs/Nithub-IT-Solutions/people → Invite member** → `nithubceoai` → role **Member**. Accept the invite in the bot's browser window.
 3. As the CEO: give members Write access to every repo, now and future:
    **Org Settings → Member privileges → Base permissions → Write**.
-   (Alternative: add `nithub-bot` as a **Write** collaborator on each repo.)
+   (Alternative: add `nithubceoai` as a **Write** collaborator on each repo.)
 4. As the bot: go to **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**:
    - Resource owner: **Nithub-IT-Solutions** (if it isn't listed, the org owner must allow fine-grained tokens: Org Settings → Personal access tokens → Allow)
    - Repository access: **All repositories**
@@ -72,7 +72,7 @@ git status          # you should see CLAUDE.md, .claude/, .github/, templates/, 
 ```
 Replace the placeholders. You need the project number from Part E, so create the project first, or use `1` and fix it later:
 ```bash
-bash scripts/personalize.sh <YOUR_GITHUB_USERNAME> nithub-bot <PROJECT_NUMBER>
+bash scripts/personalize.sh <YOUR_GITHUB_USERNAME> nithubceoai <PROJECT_NUMBER>
 git diff --stat
 git add -A
 git commit -m "chore: company HQ operating system (agents, skills, templates, workflows)"
@@ -171,13 +171,13 @@ To add more specialists later, add a line to `setup/agency-roster.txt` (the file
 
 In VS Code, open the `Company-hq` folder, copy `.claude/settings.local.json.example` to `.claude/settings.local.json`, and fill in:
 - `GH_TOKEN` → the bot's fine-grained token from Part B
-- `BOT_GITHUB_USERNAME` → `nithub-bot`
+- `BOT_GITHUB_USERNAME` → `nithubceoai`
 - `BOT_NOREPLY_EMAIL` → the bot's noreply email
 
 `settings.local.json` is in `.gitignore`, so it is never committed. Claude Code now runs `git` and `gh` as the bot. Your own terminal stays signed in as you.
 Do the same in each product repo after `/kickoff`.
 
-Check it: in Claude Code, ask "run `gh api user --jq .login`". It must print `nithub-bot`.
+Check it: in Claude Code, ask "run `gh api user --jq .login`". It must print `nithubceoai`.
 
 ---
 
@@ -218,7 +218,7 @@ Open **VS Code → File → Open Folder → Company-hq**, then click the **Claud
 |---|---|
 | `claude` not found | reopen PowerShell; or `winget install Anthropic.ClaudeCode` |
 | Claude Code uses PowerShell, not Bash | install Git for Windows; or set `CLAUDE_CODE_GIT_BASH_PATH` to `C:\Program Files\Git\bin\bash.exe` in settings `env` |
-| You can't approve a PR ("authors can't approve") | the PR was opened by you, not the bot. Check Part H (`gh api user` must say nithub-bot) |
+| You can't approve a PR ("authors can't approve") | the PR was opened by you, not the bot. Check Part H (`gh api user` must say nithubceoai) |
 | Merge button disabled | waiting for your approval, CI (`gate-check`), or unresolved conversations |
 | Claude review didn't run | secret missing (Part G.3), app not installed on the repo, or the PR is a draft |
 | Branch protection API returns 403 / "Upgrade" | private repo on the Free plan (see Part D) |

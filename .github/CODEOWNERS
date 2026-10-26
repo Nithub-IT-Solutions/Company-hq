@@ -1,10 +1,10 @@
 # The CEO must approve every change to these paths (enforced by branch protection
 # "Require review from Code Owners"). Agents open PRs as the bot account; the CEO approves.
 
-*                       @nithubceoai
-/ideas/                 @nithubceoai
-/templates/             @nithubceoai
-/CLAUDE.md              @nithubceoai
-/.claude/               @nithubceoai
-/.github/               @nithubceoai
-/product-template/      @nithubceoai
+*                       @nisarmohammadTPM
+/ideas/                 @nisarmohammadTPM
+/templates/             @nisarmohammadTPM
+/CLAUDE.md              @nisarmohammadTPM
+/.claude/               @nisarmohammadTPM
+/.github/               @nisarmohammadTPM
+/product-template/      @nisarmohammadTPM
