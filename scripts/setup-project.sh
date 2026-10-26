@@ -102,11 +102,13 @@ gh api graphql -F projectId="$PROJECT_ID" -F botId="$BOT_ID" \
   -f query='mutation($projectId: ID!, $botId: ID!) {
     updateProjectV2Collaborators(input: {
       projectId: $projectId,
-      collaborators: [{userId: $botId, role: WRITE}]
+      collaborators: [{userId: $botId, role: WRITER}]
     }) {
-      projectV2 { id }
+      collaborators(first: 100) {
+        nodes { ... on User { login } }
+      }
     }
   }' >/dev/null
 
 echo "Granted $BOT write access to \"$PROJECT_TITLE\"."
-echo "The default Status options, Sprint iteration field, views, and project workflows still need to be configured in the GitHub UI."
+echo "Sprint iteration, project views, and project workflows still need to be configured in the GitHub UI."

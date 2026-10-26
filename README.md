@@ -44,7 +44,7 @@ flowchart LR
 
 | Stage | Claude Code skill | Main output | Human decision |
 |---|---|---|---|
-| Intake | `/new-idea` | Idea record and tracking issue | Review the intake PR |
+| Intake | CEO dashboard or `/new-idea` | Tracked idea; dashboard path waits for CEO decision | Approve to scaffold a private project and start discovery, or request changes with expectations |
 | Discovery | `/discovery <slug>` | Market, customer, competitor, legal, financial, and technical research; Gate 1 brief | Approve, request changes, or reject |
 | Product definition | `/define-product <slug>` | PRD, MVP scope, UX/UI flows; Gate 2 PR | Approve the scope |
 | Build planning | `/plan-build <slug>` | Architecture, ADRs, threat model, cost, tests, delivery plan; Gate 3 PR | Approve the build plan |
@@ -96,6 +96,10 @@ flowchart TB
 - **Specialist agent prompts** are selected from `setup/agency-roster.txt` and installed by `scripts/install-agents.sh`.
 - **The local dashboard** is a Python HTTP server using only Python's standard library. The UI is static HTML, CSS, and JavaScript under `dashboard/web/`.
 - **The dashboard delegates GitHub requests to `gh`.** It expects the GitHub CLI to be signed in as `nisarmohammadTPM`; it deliberately removes token environment variables before running `gh`.
+- **Idea decisions provision project repos.** Dashboard submissions are tracked as Company HQ issues. Approving one creates a private `product-<slug>-<issue>` repository from `product-template/`, adds the `docs/Idea-Report.md`, `docs/Next-Process.md`, and `docs/Suggestions.md` records, configures CEO/code-owner branch protection, and dispatches the approved-idea discovery workflow. Denial/request-changes feedback is recorded in the issue, and the idea remains visible in the portfolio.
+- **The portfolio includes legacy intake too.** Older Company HQ issues labeled `type:idea` or titled `Idea: ...` remain visible as manual-workflow entries; only dashboard-tracked ideas have dashboard approve/request-changes actions.
+- **Project pages show live GitHub state.** Open a project link in the dashboard to view its three documents, approval status, pull requests, and Actions runs. GitHub issues and repository contents remain the persistent source of truth; the dashboard does not keep a separate local database.
+- **Per-project agent setup** comes from the product template, including Claude Code settings, skills, and a manual `workflow_dispatch` discovery workflow. Starting that workflow requires GitHub Actions enabled and the `CLAUDE_CODE_OAUTH_TOKEN` organization/repository secret available to the new repo. Discovery proposes work in a PR; agents do not approve or merge.
 - **The dashboard's Claude chat is read-only.** It gives Claude a temporary copy of the repository (without `.git`, local Claude settings, environment files, or key files), disables shell/editing tools, and does not persist a Claude session.
 - **Product repos** are scaffolded from `product-template/`; their CI must be adapted to each product's actual language and build/test commands.
 
@@ -108,6 +112,9 @@ The dashboard is local to the Windows PC that runs it. It is not hosted by GitHu
 - Windows and this repository cloned locally.
 - Python 3.12 (install/check with `.\scripts\setup-windows.ps1`).
 - GitHub CLI (`gh`) authenticated as the CEO account, `nisarmohammadTPM`.
+- CEO GitHub permissions to create private repositories in `Nithub-IT-Solutions` and push the initial template commit.
+- GitHub organization plan/policies that allow branch protection on private repositories; the dashboard requires the `build-test` check and CEO code-owner review.
+- Organization Actions enabled, with `CLAUDE_CODE_OAUTH_TOKEN` available to repositories created for this workflow.
 - Claude Code CLI authenticated to a Claude account to use the chat panel.
 - The organization **Company Pipeline** project for board details and adding submitted issues to the board.
 
@@ -128,8 +135,10 @@ The script starts the local server and opens `http://127.0.0.1:8765`. Keep the P
 ### Dashboard capabilities and boundaries
 
 - **Organization overview:** open pull requests, PRs requesting the configured CEO's review, open issues, recent workflow runs across visible organization repositories, and the `Company Pipeline` project when available.
-- **Idea intake:** enter a title, description, and optional audience; review the issue preview; then explicitly confirm. The dashboard creates an issue labeled `phase:intake` and `type:idea`. If the organization project exists, it tries to add the issue to that board.
-- **No automatic phase launch:** confirming an idea creates an issue only. It does not create the full idea folder/PR, start an agent, approve a gate, or merge anything. Continue the formal pipeline with the Claude Code skills described above.
+- **Idea intake:** enter a title, description, and optional audience; review the preview; then explicitly submit. This creates a tracked issue in Company HQ and adds it to the Company Pipeline project when available.
+- **Approve or request changes:** approve creates a private product repository from the template and starts its discovery workflow. Request changes requires your expectations and records them on the tracking issue. A failed repo/workflow setup stays visible with an error status; retry is available where safe.
+- **Project detail:** each created repository has a dashboard page showing the idea report, next process, suggestions, pull requests, and workflow runs. Select the project name from the idea portfolio.
+- **Boundaries:** only an explicit CEO approval starts discovery. Workflow completion is asynchronous; GitHub Actions can fail if the organization secret is not shared with new repositories. The dashboard does not approve or merge an agent's PR.
 - **Claude chat:** ask read-only questions about this repository. Your question and the temporary repository snapshot are sent to Claude. The dashboard chat cannot run GitHub commands or modify repository files.
 - **GitHub access:** dashboard actions use the CEO's GitHub CLI credentials. The local bot token in `.claude/settings.local.json` is not used by dashboard GitHub requests.
 
@@ -137,7 +146,7 @@ The script starts the local server and opens `http://127.0.0.1:8765`. Keep the P
 
 - Keep `.claude/settings.local.json`, `.env` files, access tokens, and API keys out of commits. The local settings file is ignored by Git; the tracked `settings.local.json.example` must contain placeholders only.
 - Revoke any credential that has been exposed. Removing it from the latest file does not erase it from Git history.
-- The dashboard binds to `127.0.0.1`, checks the local host/origin for requests, limits request sizes, validates idea content, and requires an expiring one-time confirmation before creating an issue.
+- The dashboard binds to `127.0.0.1`, checks the local host/origin for requests, limits request sizes, validates idea content, and requires an expiring one-time confirmation before creating an idea issue. Repository creation and denial feedback require separate CEO confirmation actions.
 - The dashboard uses the CEO GitHub account and refuses to serve dashboard data if the active `gh` identity is not `nisarmohammadTPM`.
 - Claude chat is explicitly read-only; avoid submitting secrets, personal data, or confidential information in either ideas or chat.
 - GitHub branch protection, CODEOWNERS, and workflow permissions are still essential safeguards. A local interface is not a substitute for review and access controls.
@@ -176,6 +185,7 @@ Check the browser JavaScript syntax with Node.js:
 
 ```powershell
 node --check dashboard\web\app.js
+node --check dashboard\web\project.js
 ```
 
 ## Related documentation

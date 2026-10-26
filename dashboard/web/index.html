@@ -35,7 +35,7 @@
       </section>
 
       <section class="stats-grid" aria-label="Company overview">
-        <article class="stat-card"><span class="stat-label">Open ideas & issues</span><strong id="stat-issues">—</strong><span class="stat-foot">In Company HQ</span></article>
+        <article class="stat-card"><span class="stat-label">Tracked ideas</span><strong id="stat-issues">—</strong><span class="stat-foot">Across every stage</span></article>
         <article class="stat-card"><span class="stat-label">Open pull requests</span><strong id="stat-prs">—</strong><span class="stat-foot">Waiting in review</span></article>
         <article class="stat-card"><span class="stat-label">Needs CEO review</span><strong id="stat-review">—</strong><span class="stat-foot">Review decision requested</span></article>
         <article class="stat-card"><span class="stat-label">Latest workflow</span><strong class="stat-word" id="stat-workflow">—</strong><span class="stat-foot" id="workflow-foot">Actions status</span></article>
@@ -48,7 +48,7 @@
               <div><p class="eyebrow">THE IDEA INTAKE</p><h2>What should we build?</h2></div>
               <span class="step-badge">01 <i>/ 02</i></span>
             </div>
-            <p class="panel-copy">Describe the opportunity in your own words. Review it first; nothing is sent to GitHub until you confirm.</p>
+            <p class="panel-copy">Submit a clear starting point. Nothing is sent until you review and confirm it. After submission, you can approve it to create a private project and start discovery, or request changes with your expectations.</p>
             <form id="idea-form">
               <label for="idea-title">A short name for the idea</label>
               <input id="idea-title" name="title" maxlength="120" placeholder="e.g. Invoicing reminders for small businesses" required>
@@ -58,7 +58,7 @@
               <label for="idea-audience">Who is it for? <span class="optional">(optional)</span></label>
               <input id="idea-audience" name="audience" maxlength="500" placeholder="e.g. Independent shop owners">
               <div class="form-footer">
-                <span class="privacy-note">Creates an intake issue only. No agent work starts automatically.</span>
+                <span class="privacy-note">Submission creates a tracked idea. A private project and discovery workflow start only after you approve.</span>
                 <button class="button button-primary" id="preview-button" type="submit">Review idea <span aria-hidden="true">→</span></button>
               </div>
             </form>
@@ -108,6 +108,16 @@
           </section>
         </aside>
       </section>
+
+      <section class="panel portfolio-panel" aria-labelledby="portfolio-title">
+        <div class="panel-heading">
+          <div><p class="eyebrow">IDEA PORTFOLIO</p><h2 id="portfolio-title">Every idea, one place</h2></div>
+          <span class="portfolio-count" id="idea-count-total">0 ideas</span>
+        </div>
+        <p class="panel-copy">Review decisions, expectations, project repositories, and workflow progress. Open a project for its documents and activity.</p>
+        <div id="idea-list" class="idea-list"><div class="empty-state">Loading ideas…</div></div>
+      </section>
+
       <footer class="page-footer"><span>Company HQ · CEO workspace</span><span>Private to this PC · GitHub access uses your CEO CLI login</span></footer>
     </main>
 
@@ -115,12 +125,27 @@
       <section class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
         <button id="close-confirm" class="close-button" type="button" aria-label="Close">×</button>
         <p class="eyebrow">FINAL CHECK</p>
-        <h2 id="confirm-title">Send this idea to GitHub?</h2>
-        <p class="panel-copy">This creates an issue with the intake labels. It does not start agent work, create a PR, or approve a gate.</p>
+        <h2 id="confirm-title">Submit this idea?</h2>
+        <p class="panel-copy">This creates a tracked idea in Company HQ. No project repository or agent run starts until you approve it.</p>
         <div id="idea-preview" class="idea-preview"></div>
         <div class="confirm-actions">
           <button class="button button-quiet" id="cancel-confirm" type="button">Keep editing</button>
-          <button class="button button-primary" id="confirm-submit" type="button">Confirm and create issue</button>
+          <button class="button button-primary" id="confirm-submit" type="button">Submit idea</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="decision-overlay" class="overlay" hidden>
+      <section class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="decision-title">
+        <button id="close-decision" class="close-button" type="button" aria-label="Close">×</button>
+        <p class="eyebrow" id="decision-kicker">CEO DECISION</p>
+        <h2 id="decision-title">Approve this idea?</h2>
+        <p class="panel-copy" id="decision-description"></p>
+        <label id="expectation-label" for="deny-expectation" hidden>What are you expecting to change?</label>
+        <textarea id="deny-expectation" rows="5" maxlength="3000" placeholder="Describe what should be different or clarified…" hidden></textarea>
+        <div class="confirm-actions">
+          <button class="button button-quiet" id="cancel-decision" type="button">Cancel</button>
+          <button class="button button-primary" id="submit-decision" type="button">Approve and start discovery</button>
         </div>
       </section>
     </div>

@@ -197,10 +197,17 @@ using GitHub CLI authenticated as the CEO. The organization project must exist b
    ```powershell
    .\scripts\start-dashboard.ps1
    ```
-3. Use the browser page that opens. Idea submission first shows a preview; **Confirm and create issue**
-   creates a GitHub issue with intake labels and adds it to Company Pipeline when that project exists.
-   It does not start agent work or approve a gate.
-4. Claude chat is read-only. It sends your question and a temporary repository snapshot to Claude; local
+3. Use the browser page that opens. Review the idea preview and submit it to create a tracked Company HQ
+   issue. In the idea portfolio, choose **Approve** to create a private `product-<slug>-<issue>` repo
+   from `product-template/`, configure CEO/code-owner review rules, and dispatch its discovery workflow.
+   The GitHub organization plan must support branch protection for private repos. Choose **Deny / request changes** to
+   enter and save the expectations on the tracking issue. Open a project name to see its documents,
+   pull requests, and Actions runs.
+4. For agent discovery to run, GitHub Actions must be enabled and the `CLAUDE_CODE_OAUTH_TOKEN` secret
+   must be available to the new repository. Project repositories contain an approved-idea workflow
+   that the dashboard starts only after your approval. The agent opens a pull request; it cannot approve
+   or merge that PR. A failure appears in the dashboard status and GitHub Actions.
+5. Claude chat is read-only. It sends your question and a temporary repository snapshot to Claude; local
    settings, `.env` files, keys, and Git history are excluded. Stop the server with **Ctrl+C** in the
    PowerShell window.
 
@@ -209,6 +216,11 @@ using GitHub CLI authenticated as the CEO. The organization project must exist b
 ## Part I — Daily operation (how you run the company)
 
 Open **VS Code → File → Open Folder → Company-hq**, then click the **Claude** icon (or run `claude` in the VS Code terminal).
+
+The CEO dashboard adds an idea-first route: submit an idea, approve or request changes, then follow
+the resulting private project repo and discovery PR from its project page. The slash commands below
+remain available for the full manually orchestrated company pipeline; dashboard-created projects
+start in their own `docs/` workspace and continue under the same CEO approval rules.
 
 | You want to… | You do | What happens |
 |---|---|---|

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0d1729">
+    <title>Project · Company HQ</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/project.css">
+    <script src="/project.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Company HQ dashboard home">
+        <span class="brand-mark">HQ</span>
+        <span>Company <strong>HQ</strong></span>
+      </a>
+      <div class="topbar-right">
+        <a class="button button-quiet" href="/">← All ideas</a>
+        <button class="button button-quiet" id="project-refresh" type="button">Refresh</button>
+      </div>
+    </header>
+    <main class="project-shell">
+      <a class="back-link" href="/">← Back to the idea portfolio</a>
+      <section class="project-hero">
+        <div>
+          <p class="eyebrow">PROJECT WORKSPACE</p>
+          <h1 id="project-title">Loading project…</h1>
+          <p class="project-summary" id="project-summary">Loading project details from GitHub.</p>
+        </div>
+        <div class="project-status-card">
+          <span class="date-label">CURRENT STATUS</span>
+          <strong id="project-status">Loading</strong>
+          <a id="repo-link" class="text-link" href="#" target="_blank" rel="noreferrer">Open GitHub repository ↗</a>
+          <a id="tracking-link" class="text-link" href="#" target="_blank" rel="noreferrer">Open tracking idea ↗</a>
+        </div>
+      </section>
+
+      <div id="project-error" class="notice notice-warning" role="alert" hidden></div>
+
+      <section class="project-columns">
+        <div class="project-main-column">
+          <section class="panel">
+            <div class="panel-heading compact"><div><p class="eyebrow">DELIVERY</p><h2>Progress and activity</h2></div></div>
+            <div id="progress-list" class="list-stack"><div class="empty-state">Loading activity…</div></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading compact"><div><p class="eyebrow">PULL REQUESTS</p><h2>Reviews and decisions</h2></div></div>
+            <div id="pull-request-list" class="list-stack"><div class="empty-state">Loading pull requests…</div></div>
+          </section>
+          <section class="panel" id="expectations-panel" hidden>
+            <div class="panel-heading compact"><div><p class="eyebrow">CEO FEEDBACK</p><h2>Requested changes</h2></div></div>
+            <p id="expectations-copy" class="document-copy"></p>
+          </section>
+        </div>
+        <aside class="project-documents">
+          <section class="panel">
+            <div class="panel-heading compact"><div><p class="eyebrow">IDEA REPORT</p><h2>Original brief and research</h2></div></div>
+            <pre class="project-document" id="doc-idea">Loading document…</pre>
+          </section>
+          <section class="panel">
+            <div class="panel-heading compact"><div><p class="eyebrow">NEXT PROCESS</p><h2>What happens next</h2></div></div>
+            <pre class="project-document" id="doc-next">Loading document…</pre>
+          </section>
+          <section class="panel">
+            <div class="panel-heading compact"><div><p class="eyebrow">SUGGESTIONS</p><h2>Notes and opportunities</h2></div></div>
+            <pre class="project-document" id="doc-suggestions">Loading document…</pre>
+          </section>
+        </aside>
+      </section>
+      <footer class="page-footer"><span>Company HQ · project workspace</span><span>Progress is read from the project repository and GitHub Actions</span></footer>
+    </main>
+  </body>
+</html>

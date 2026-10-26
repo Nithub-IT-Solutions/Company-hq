@@ -10,6 +10,8 @@ const confirmButton = $("#confirm-submit");
 const toast = $("#toast");
 let confirmationId = null;
 let toastTimer = null;
+let decisionTarget = null;
+let decisionMode = null;
 
 function escapeText(value) {
   return String(value ?? "");
@@ -108,7 +110,13 @@ function renderIssues(issues) {
   issues.slice(0, 6).forEach((issue) => {
     const labels = (issue.labels || []).map((label) => label.name).filter(Boolean).slice(0, 2).join(" · ");
     const repo = issue.repository?.nameWithOwner || "Organization repo";
-    list.append(externalLink(issue.url, `#${issue.number} · ${issue.title}`, labels || `${repo} · ${issue.author?.login || "a contributor"}`));
+    list.append(
+      externalLink(
+        issue.url,
+        `#${issue.number} · ${issue.title}`,
+        labels || `${repo} · ${issue.author?.login || "a contributor"}`,
+      ),
+    );
   });
 }
 
@@ -116,7 +124,10 @@ function renderProject(project) {
   const panel = $("#project-content");
   panel.replaceChildren();
   if (!project) {
-    setListMessage(panel, "The Company Pipeline project was not found. Create it in the Nithub-IT-Solutions organization, then refresh.");
+    setListMessage(
+      panel,
+      "The Company Pipeline project was not found. Create it in the Nithub-IT-Solutions organization, then refresh.",
+    );
     const link = document.createElement("a");
     link.className = "button button-outline full-button";
     link.href = "https://github.com/orgs/Nithub-IT-Solutions/projects";
@@ -183,7 +194,104 @@ function renderWorkflows(runs) {
   $("#workflow-foot").textContent = latest.name || "Latest Actions run";
   runs.slice(0, 5).forEach((run) => {
     const status = run.status === "completed" ? (run.conclusion || "completed") : run.status;
-    list.append(externalLink(run.url, run.displayTitle || run.name, `${status} · ${run.repository} · ${run.headBranch || run.event || "GitHub Actions"}`));
+    list.append(
+      externalLink(
+        run.url,
+        run.displayTitle || run.name,
+        `${status} · ${run.repository} · ${run.headBranch || run.event || "GitHub Actions"}`,
+      ),
+    );
+  });
+}
+
+const statusLabels = {
+  manual: "Manual workflow",
+  pending: "Awaiting decision",
+  changes_requested: "Changes requested",
+  provisioning: "Creating project",
+  provisioning_failed: "Project setup needs attention",
+  starting_discovery: "Starting discovery",
+  discovery: "Discovery in progress",
+  discovery_start_failed: "Discovery needs attention",
+};
+
+function renderIdeas(ideas) {
+  const list = $("#idea-list");
+  list.replaceChildren();
+  if (ideas?.error) {
+    setListMessage(list, ideas.error, true);
+    $("#idea-count-total").textContent = "Unavailable";
+    $("#stat-issues").textContent = "!";
+    return;
+  }
+  const records = Array.isArray(ideas) ? ideas : [];
+  $("#idea-count-total").textContent = `${records.length} ${records.length === 1 ? "idea" : "ideas"}`;
+  $("#stat-issues").textContent = String(records.length);
+  if (!records.length) {
+    setListMessage(list, "No ideas have been submitted yet. Your first idea will appear here.");
+    return;
+  }
+  records.forEach((idea) => {
+    const card = document.createElement("article");
+    card.className = "idea-row";
+    const main = document.createElement("div");
+    main.className = "idea-row-main";
+    const title = document.createElement("a");
+    title.className = "idea-row-title";
+    title.href = idea.url;
+    title.target = "_blank";
+    title.rel = "noreferrer";
+    title.textContent = idea.title;
+    const meta = document.createElement("div");
+    meta.className = "idea-row-meta";
+    meta.textContent = `#${idea.number} · ${new Date(idea.createdAt).toLocaleDateString()}`;
+    main.append(title, meta);
+    if (idea.expectations) {
+      const expectation = document.createElement("p");
+      expectation.className = "idea-feedback";
+      expectation.textContent = `CEO expects: ${idea.expectations}`;
+      main.append(expectation);
+    }
+    const status = document.createElement("span");
+    status.className = `status-pill status-${idea.status}`;
+    status.textContent = statusLabels[idea.status] || idea.status.replaceAll("_", " ");
+    const state = document.createElement("div");
+    state.className = "idea-row-state";
+    state.append(status);
+    if (idea.status_detail) {
+      const detail = document.createElement("small");
+      detail.textContent = idea.status_detail;
+      state.append(detail);
+    }
+    const project = document.createElement("div");
+    project.className = "idea-row-project";
+    if (idea.repo_name) {
+      const link = document.createElement("a");
+      link.href = `/projects/${encodeURIComponent(idea.repo_name)}`;
+      link.textContent = idea.repo_name;
+      project.append(link);
+    } else if (idea.status === "pending" || idea.status === "changes_requested") {
+      project.textContent = "No project created yet";
+    }
+    const actions = document.createElement("div");
+    actions.className = "idea-row-actions";
+    if (["pending", "changes_requested", "provisioning_failed", "discovery_start_failed"].includes(idea.status)) {
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "button button-primary button-small";
+      approve.textContent = ["provisioning_failed", "discovery_start_failed"].includes(idea.status)
+        ? "Retry setup"
+        : "Approve";
+      approve.addEventListener("click", () => openDecision(idea, "approve"));
+      const deny = document.createElement("button");
+      deny.type = "button";
+      deny.className = "button button-outline button-small";
+      deny.textContent = "Deny / request changes";
+      deny.addEventListener("click", () => openDecision(idea, "deny"));
+      actions.append(approve, deny);
+    }
+    card.append(main, state, project, actions);
+    list.append(card);
   });
 }
 
@@ -200,16 +308,87 @@ async function refreshDashboard() {
     renderIssues(data.issues);
     renderProject(data.project);
     renderWorkflows(data.workflow_runs);
+    renderIdeas(data.ideas);
   } catch (error) {
     $("#connection-status").textContent = "GitHub connection needs attention";
     $("#updated-at").textContent = error.message;
     $("#repo-name").textContent = "· Nithub-IT-Solutions/Company-hq";
-    ["#review-list", "#issue-list", "#project-content", "#workflow-list"].forEach((selector) =>
+    ["#review-list", "#issue-list", "#project-content", "#workflow-list", "#idea-list"].forEach((selector) =>
       setListMessage($(selector), error.message, true)
     );
+    $("#idea-count-total").textContent = "Unavailable";
     showToast(error.message, true);
   } finally {
     $("#refresh-button").disabled = false;
+  }
+}
+
+function openDecision(idea, mode) {
+  decisionTarget = idea;
+  decisionMode = mode;
+  const denying = mode === "deny";
+  const retry = mode === "approve" &&
+    ["provisioning_failed", "discovery_start_failed"].includes(idea.status);
+  $("#decision-title").textContent = denying
+    ? "Request changes to this idea?"
+    : retry
+      ? "Retry project setup?"
+      : "Approve this idea?";
+  $("#decision-description").textContent = denying
+    ? "Your expectations will be saved on the tracking issue. " +
+      "The idea stays in the portfolio and can be reviewed again."
+    : retry
+      ? "The previous attempt failed. The dashboard will reuse a complete project repository if one exists. " +
+        "It will not overwrite an incomplete repository."
+      : "This creates a private project repository and starts discovery. " +
+        "Agents prepare a pull request but cannot approve or merge it.";
+  $("#expectation-label").hidden = !denying;
+  $("#deny-expectation").hidden = !denying;
+  $("#deny-expectation").value = "";
+  $("#submit-decision").textContent = denying
+    ? "Save expectations"
+    : retry
+      ? "Retry setup"
+      : "Approve and start discovery";
+  $("#decision-overlay").hidden = false;
+  if (denying) $("#deny-expectation").focus();
+}
+
+function closeDecision() {
+  $("#decision-overlay").hidden = true;
+  decisionTarget = null;
+  decisionMode = null;
+  $("#submit-decision").disabled = false;
+}
+
+async function submitDecision() {
+  if (!decisionTarget || !decisionMode) return;
+  const button = $("#submit-decision");
+  const mode = decisionMode;
+  const idea = decisionTarget;
+  if (mode === "deny" && !$("#deny-expectation").value.trim()) {
+    $("#deny-expectation").focus();
+    showToast("Please describe what you expect to change.", true);
+    return;
+  }
+  button.disabled = true;
+  button.textContent = mode === "approve" ? "Creating project and starting discovery…" : "Saving your expectations…";
+  try {
+    const result = await api(`/api/ideas/${idea.number}/${mode}`, {
+      method: "POST",
+      body: JSON.stringify(mode === "deny" ? { expectation: $("#deny-expectation").value } : {}),
+    });
+    closeDecision();
+    if (mode === "approve" && result.repo_url) {
+      showToast(`Private project created: ${result.repo_name}. Discovery workflow started.`);
+    } else {
+      showToast("Your expectations were saved to the idea's decision history.");
+    }
+    await refreshDashboard();
+  } catch (error) {
+    closeDecision();
+    showToast(error.message, true);
+    await refreshDashboard();
   }
 }
 
@@ -266,7 +445,7 @@ async function confirmIdea() {
     notice.hidden = false;
     notice.className = "notice notice-success";
     const message = document.createElement("span");
-    message.textContent = result.warning || "Idea captured. No agent workflow was started.";
+    message.textContent = result.warning || "Idea submitted. It is waiting for your decision in the portfolio.";
     if (result.warning) notice.classList.add("notice-warning");
     const link = document.createElement("a");
     link.href = result.url;
@@ -274,7 +453,7 @@ async function confirmIdea() {
     link.rel = "noreferrer";
     link.textContent = "Open the GitHub issue ↗";
     notice.append(message, link);
-    showToast("Idea issue created. You remain in control of the next step.");
+    showToast("Idea submitted. Review it in the portfolio when you are ready.");
     await refreshDashboard();
   } catch (error) {
     closeConfirmation();
@@ -336,4 +515,10 @@ $("#chat-form").addEventListener("submit", async (event) => {
 });
 
 $("#refresh-button").addEventListener("click", refreshDashboard);
+$("#submit-decision").addEventListener("click", submitDecision);
+$("#cancel-decision").addEventListener("click", closeDecision);
+$("#close-decision").addEventListener("click", closeDecision);
+$("#decision-overlay").addEventListener("click", (event) => {
+  if (event.target === $("#decision-overlay")) closeDecision();
+});
 refreshDashboard();

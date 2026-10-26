@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -29,6 +30,16 @@ MAX_REQUEST_BYTES = 16_000
 MAX_IDEA_LENGTH = 5_000
 MAX_CHAT_LENGTH = 4_000
 CONFIRMATION_LIFETIME = 300
+IDEA_MARKER = re.compile(r"<!-- company-hq-idea: ([^\n]+) -->")
+IDEA_STATUSES = {
+    "pending",
+    "changes_requested",
+    "provisioning",
+    "provisioning_failed",
+    "starting_discovery",
+    "discovery",
+    "discovery_start_failed",
+}
 
 SECRET_PATTERNS = (
     re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
@@ -119,7 +130,7 @@ def load_projects() -> list[dict]:
     items_result = run_json(
         [
             "project", "item-list", str(target["number"]), "--owner", OWNER,
-            "--limit", "50", "--format", "json", "--field", "Status",
+            "--limit", "50", "--format", "json",
         ]
     )
     items = items_result.get("items", []) if isinstance(items_result, dict) else items_result
@@ -158,6 +169,10 @@ def dashboard_data() -> dict:
         "issues": [
             "search", "issues", "--owner", OWNER, "--state", "open", "--limit", "100",
             "--json", "number,title,url,author,createdAt,labels,repository",
+        ],
+        "idea_issues": [
+            "issue", "list", "--repo", f"{OWNER}/{REPO}", "--state", "all", "--limit", "1000",
+            "--json", "number,title,url,body,state,createdAt,updatedAt,labels",
         ],
         "repositories": [
             "repo", "list", OWNER, "--limit", "100", "--json", "nameWithOwner",
@@ -215,6 +230,17 @@ def dashboard_data() -> dict:
     workflow_runs.sort(key=lambda run: run.get("createdAt", ""), reverse=True)
     data["workflow_runs"] = workflow_runs[:10]
     data["workflow_errors"] = workflow_errors
+    idea_issues = data.get("idea_issues", [])
+    data["ideas"] = (
+        [
+            idea_record(issue)
+            for issue in idea_issues
+            if isinstance(issue, dict) and is_tracked_idea(issue)
+        ]
+        if isinstance(idea_issues, list)
+        else {"error": idea_issues.get("error", "Could not load tracked ideas.")}
+    )
+    data.pop("idea_issues", None)
     data.pop("repositories", None)
 
     data.update(
@@ -254,13 +280,275 @@ def validate_idea(payload: object) -> dict[str, str]:
 def issue_body(idea: dict[str, str]) -> str:
     audience = idea["audience"] or "Not specified yet"
     return (
+        "## Dashboard status\n\n"
+        "**Awaiting CEO decision**\n\n"
         "## Idea\n\n"
         f"{idea['idea']}\n\n"
         "## Intended audience\n\n"
         f"{audience}\n\n"
         "## Intake status\n\n"
-        "Submitted through the local Company HQ CEO dashboard. This creates an intake issue only; "
-        "it does not start agent work or approve a gate.\n"
+        "Submitted through the Company HQ CEO dashboard. A private project repository and discovery "
+        "workflow are created only after CEO approval.\n\n"
+        f"{idea_marker({'status': 'pending', 'slug': '', 'audience': audience})}\n"
+    )
+
+
+def idea_marker(metadata: dict[str, str]) -> str:
+    return f"<!-- company-hq-idea: {json.dumps(metadata, separators=(',', ':'))} -->"
+
+
+def idea_metadata(body: str) -> dict[str, str] | None:
+    match = IDEA_MARKER.search(body if isinstance(body, str) else "")
+    if not match:
+        return None
+    try:
+        metadata = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(metadata, dict) or not isinstance(metadata.get("status"), str):
+        return None
+    if metadata["status"] not in IDEA_STATUSES:
+        return None
+    slug = metadata.get("slug", "")
+    if not isinstance(slug, str) or (slug and not re.fullmatch(r"product-[a-z0-9-]{1,50}-\d+", slug)):
+        return None
+    if "audience" in metadata and not isinstance(metadata["audience"], str):
+        return None
+    metadata["slug"] = slug
+    return metadata
+
+
+def idea_record(issue: dict) -> dict:
+    body = issue.get("body", "")
+    metadata = idea_metadata(body)
+    status_match = re.search(r"## Dashboard status\n\n\*\*(.*?)\*\*", body, re.S)
+    expectations_match = re.search(
+        r"## CEO expectations\n\n(.*?)(?:\n\n<!-- company-hq-idea: [^\n]+ -->|$)",
+        body,
+        re.S,
+    )
+    return {
+        "number": issue.get("number"),
+        "title": issue.get("title", "Untitled idea"),
+        "url": issue.get("url"),
+        "state": issue.get("state", "OPEN"),
+        "createdAt": issue.get("createdAt"),
+        "status": metadata.get("status", "manual") if metadata else "manual",
+        "repo_name": metadata.get("slug", "") if metadata else "",
+        "repo_url": f"https://github.com/{OWNER}/{metadata['slug']}" if metadata and metadata.get("slug") else "",
+        "status_detail": status_match.group(1) if status_match else (
+            "Created outside the dashboard; continue in the existing workflow." if not metadata else ""
+        ),
+        "expectations": expectations_match.group(1) if expectations_match else "",
+    }
+
+
+def is_tracked_idea(issue: dict) -> bool:
+    if idea_metadata(issue.get("body", "")):
+        return True
+    labels = issue.get("labels", [])
+    return issue.get("title", "").casefold().startswith("idea: ") or any(
+        isinstance(label, dict) and label.get("name") == "type:idea"
+        for label in labels
+    )
+
+
+def replace_idea_metadata(body: str, metadata: dict[str, str], status_text: str) -> str:
+    marker = idea_marker(metadata)
+    if IDEA_MARKER.search(body):
+        body = IDEA_MARKER.sub(marker, body)
+    else:
+        body = f"{body.rstrip()}\n\n{marker}\n"
+    body = re.sub(
+        r"## Dashboard status\n\n\*\*.*?\*\*",
+        f"## Dashboard status\n\n**{status_text}**",
+        body,
+        count=1,
+    )
+    return body
+
+
+def read_idea(number: int) -> dict:
+    issue = run_json(
+        ["issue", "view", str(number), "--repo", f"{OWNER}/{REPO}",
+         "--json", "number,title,url,body,state,createdAt,updatedAt"]
+    )
+    metadata = idea_metadata(issue.get("body", ""))
+    if not metadata:
+        raise DashboardError("This issue is not a dashboard-tracked idea.", 404)
+    issue["metadata"] = metadata
+    return issue
+
+
+def save_idea_state(issue: dict, status: str, status_text: str, comment: str = "") -> dict[str, str]:
+    metadata = issue["metadata"]
+    metadata["status"] = status
+    body = replace_idea_metadata(issue.get("body", ""), metadata, status_text)
+    run_gh(
+        ["issue", "edit", str(issue["number"]), "--repo", f"{OWNER}/{REPO}", "--body", body],
+        timeout=30,
+    )
+    if comment:
+        run_gh(
+            ["issue", "comment", str(issue["number"]), "--repo", f"{OWNER}/{REPO}", "--body", comment],
+            timeout=30,
+        )
+    issue["body"] = body
+    issue["metadata"] = metadata
+    return idea_record(issue)
+
+
+def repo_slug(title: str, issue_number: int) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", title.casefold()).strip("-")[:35].strip("-") or "idea"
+    return f"product-{base}-{issue_number}"
+
+
+def write_project_docs(directory: Path, idea: dict[str, str], issue: dict, slug: str) -> None:
+    docs = directory / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    (docs / "Idea-Report.md").write_text(
+        f"# {idea['title']}\n\n"
+        f"- Tracking issue: {issue['url']}\n"
+        f"- Project repository: https://github.com/{OWNER}/{slug}\n"
+        f"- Status: Awaiting discovery\n\n"
+        "## Original idea\n\n"
+        f"{idea['idea']}\n\n"
+        "## Intended audience\n\n"
+        f"{idea['audience'] or 'Not specified yet'}\n",
+        encoding="utf-8",
+    )
+    (docs / "Next-Process.md").write_text(
+        "# Next process\n\n"
+        "Status: CEO approved; discovery workflow queued.\n\n"
+        "## Roadmap\n\n"
+        "1. **Discovery:** the approved discovery workflow researches the opportunity and opens a "
+        "Gate 1 PR.\n"
+        "2. **Idea approval:** the CEO reviews the evidence and merges the Gate 1 PR, or requests "
+        "changes with feedback.\n"
+        "3. **Product definition:** prepare the PRD, MVP scope, and user experience; the CEO "
+        "approves Gate 2.\n"
+        "4. **Build planning:** prepare architecture, security, delivery, cost, and test plans; "
+        "the CEO approves Gate 3.\n"
+        "5. **Build and release:** deliver in reviewed feature PRs, then prepare a release PR for "
+        "CEO approval.\n\n"
+        "This repository contains the product-specific Claude Code agents and workflow. Each CEO gate "
+        "is a human decision. Agents must not approve or merge pull requests or push directly to `main`.\n\n"
+        "See the [discovery workflow](../.github/workflows/idea-discovery.yml) and "
+        "[tracking issue](" + issue["url"] + ").\n",
+        encoding="utf-8",
+    )
+    (docs / "Suggestions.md").write_text(
+        "# Suggestions\n\n"
+        "Record CEO feedback and suggested changes here. The dashboard stores denial feedback "
+        "on the tracking issue so it remains part of the decision history.\n",
+        encoding="utf-8",
+    )
+
+
+def repository_exists(slug: str) -> bool:
+    try:
+        run_gh(["repo", "view", f"{OWNER}/{slug}", "--json", "name"])
+    except DashboardError as exc:
+        if "Could not resolve to a Repository" not in str(exc) and "not found" not in str(exc).casefold():
+            raise
+        return False
+    return True
+
+
+def project_repository_is_bootstrapped(slug: str) -> bool:
+    for path in (
+        f"repos/{OWNER}/{slug}/contents/docs/Idea-Report.md",
+        f"repos/{OWNER}/{slug}/contents/.github/workflows/idea-discovery.yml",
+    ):
+        try:
+            run_gh(["api", path])
+        except DashboardError as exc:
+            if "404" in str(exc) or "not found" in str(exc).casefold():
+                return False
+            raise
+    return True
+
+
+def create_project_repository(idea: dict[str, str], issue: dict, slug: str) -> None:
+    with tempfile.TemporaryDirectory(prefix="company-hq-project-") as temp_dir:
+        project_dir = Path(temp_dir) / slug
+        shutil.copytree(ROOT / "product-template", project_dir)
+        write_project_docs(project_dir, idea, issue, slug)
+        for relative in (Path("README.md"), Path("CLAUDE.md")):
+            path = project_dir / relative
+            path.write_text(
+                path.read_text(encoding="utf-8").replace("PRODUCT_NAME", idea["title"]),
+                encoding="utf-8",
+            )
+
+        def git(args: list[str]) -> None:
+            try:
+                result = subprocess.run(
+                    ["git", *args], cwd=project_dir, env=clean_gh_environment(),
+                    capture_output=True, text=True, timeout=30, check=False,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+                raise DashboardError(
+                    "Git is unavailable or timed out while preparing the project repository.",
+                    503,
+                ) from exc
+            if result.returncode:
+                detail = (result.stderr or result.stdout).strip()[:500]
+                raise DashboardError(detail or "Git could not prepare the project repository.", 502)
+
+        git(["init", "-b", "main"])
+        git(["config", "user.name", EXPECTED_CEO])
+        git(["config", "user.email", "nisarmohammad.tpm@gmail.com"])
+        git(["config", "credential.helper", "!gh auth git-credential"])
+        git(["add", "-A"])
+        git(["commit", "-m", "chore: initialize approved idea project"])
+        run_gh(
+            [
+                "repo", "create", f"{OWNER}/{slug}", "--private",
+                "--description", idea["title"][:350],
+                "--source", str(project_dir), "--remote", "origin", "--push",
+            ],
+            timeout=120,
+        )
+
+
+def configure_project_repository(slug: str) -> None:
+    protection = {
+        "required_status_checks": {"strict": True, "contexts": ["build-test"]},
+        "enforce_admins": False,
+        "required_pull_request_reviews": {
+            "required_approving_review_count": 1,
+            "require_code_owner_reviews": True,
+            "dismiss_stale_reviews": True,
+            "require_last_push_approval": True,
+        },
+        "restrictions": None,
+        "required_linear_history": True,
+        "allow_force_pushes": False,
+        "allow_deletions": False,
+        "required_conversation_resolution": True,
+    }
+    with tempfile.TemporaryDirectory(prefix="company-hq-protection-") as temp_dir:
+        payload_path = Path(temp_dir) / "protection.json"
+        payload_path.write_text(json.dumps(protection), encoding="utf-8")
+        run_gh(
+            [
+                "api", "-X", "PUT", f"repos/{OWNER}/{slug}/branches/main/protection",
+                "-H", "Accept: application/vnd.github+json",
+                "--input", str(payload_path),
+            ],
+            timeout=40,
+        )
+    run_gh(
+        [
+            "api", "-X", "PATCH", f"repos/{OWNER}/{slug}",
+            "-F", "allow_squash_merge=true",
+            "-F", "allow_merge_commit=false",
+            "-F", "allow_rebase_merge=false",
+            "-F", "delete_branch_on_merge=true",
+            "-F", "allow_update_branch=true",
+        ],
+        timeout=40,
     )
 
 
@@ -276,10 +564,13 @@ def create_issue(idea: dict[str, str]) -> dict[str, str]:
         ],
         timeout=40,
     )
-    match = re.search(r"https://github\.com/[^\s]+/issues/\d+", output)
+    match = re.search(r"https://github\.com/[^\s]+/issues/(\d+)", output)
     if not match:
         raise DashboardError("GitHub created the issue, but its URL could not be read from the CLI response.", 502)
-    url = match.group(0)
+    url, number = match.group(0), int(match.group(1))
+    metadata = {"status": "pending", "slug": "", "audience": idea["audience"]}
+    body = replace_idea_metadata(issue_body(idea), metadata, "Awaiting CEO decision")
+    run_gh(["issue", "edit", str(number), "--repo", f"{OWNER}/{REPO}", "--body", body], timeout=30)
     result = {"url": url, "title": f"Idea: {idea['title']}", "warning": ""}
     try:
         projects = load_projects()
@@ -296,6 +587,142 @@ def create_issue(idea: dict[str, str]) -> dict[str, str]:
     except DashboardError:
         result["warning"] = "The issue was created, but could not be linked to the project board."
     return result
+
+
+def approve_idea(number: int) -> dict:
+    require_ceo_identity()
+    issue = read_idea(number)
+    if issue["metadata"]["status"] not in (
+        "pending", "changes_requested", "provisioning_failed", "discovery_start_failed",
+    ):
+        raise DashboardError("This idea is not waiting for an approval decision.", 409)
+    idea_match = re.search(r"## Idea\n\n(.*?)\n\n## Intended audience", issue["body"], re.S)
+    if not idea_match:
+        raise DashboardError("The tracked idea description could not be read from its issue.", 422)
+    idea = validate_idea(
+        {
+            "title": issue["title"].removeprefix("Idea: "),
+            "idea": idea_match.group(1),
+            "audience": issue["metadata"].get("audience", ""),
+        }
+    )
+    slug = issue["metadata"].get("slug") or repo_slug(idea["title"], issue["number"])
+    issue["metadata"]["slug"] = slug
+    save_idea_state(issue, "provisioning", "Approved by CEO; creating private project repository.")
+    try:
+        if repository_exists(slug):
+            if not project_repository_is_bootstrapped(slug):
+                raise DashboardError(
+                    f"Repository {OWNER}/{slug} exists but is incomplete. Refusing to overwrite it; "
+                    "review the repository and repair its initial scaffold before retrying.",
+                    409,
+                )
+        else:
+            create_project_repository(idea, issue, slug)
+        configure_project_repository(slug)
+    except DashboardError as exc:
+        save_idea_state(issue, "provisioning_failed", f"Approval recorded; repository setup failed: {exc}")
+        raise
+    issue["metadata"]["slug"] = slug
+    save_idea_state(issue, "starting_discovery", "Approved; private repository created; starting discovery.")
+    try:
+        run_gh(["workflow", "run", "idea-discovery.yml", "--repo", f"{OWNER}/{slug}"], timeout=40)
+    except DashboardError as exc:
+        save_idea_state(
+            issue, "discovery_start_failed",
+            f"Repository created, but discovery could not be started: {exc}",
+        )
+        raise DashboardError(
+            f"Private project repository was created at https://github.com/{OWNER}/{slug}, "
+            f"but discovery did not start: {exc}",
+            502,
+        ) from exc
+    return save_idea_state(issue, "discovery", "Approved; discovery workflow started.") | {
+        "repo_name": slug,
+        "repo_url": f"https://github.com/{OWNER}/{slug}",
+    }
+
+
+def deny_idea(number: int, expectation: object) -> dict:
+    require_ceo_identity()
+    issue = read_idea(number)
+    if issue["metadata"]["status"] not in ("pending", "changes_requested"):
+        raise DashboardError("This idea is not waiting for a decision.", 409)
+    if not isinstance(expectation, str) or not expectation.strip():
+        raise DashboardError("Describe what you expect to change before denying this idea.")
+    if len(expectation.strip()) > 3000:
+        raise DashboardError("Keep the requested changes under 3,000 characters.")
+    if any(pattern.search(expectation) for pattern in SECRET_PATTERNS):
+        raise DashboardError("This text looks like it may contain a secret. Remove credentials before submitting.")
+    feedback = expectation.strip()
+    body = issue.get("body", "")
+    marker = IDEA_MARKER.search(body)
+    if not marker:
+        raise DashboardError("The dashboard tracking marker is missing from this idea.", 409)
+    body = IDEA_MARKER.sub("", body)
+    body = re.sub(r"\n\n## CEO expectations\n\n.*$", "", body, flags=re.S)
+    issue["body"] = f"{body.rstrip()}\n\n## CEO expectations\n\n{feedback}\n\n{marker.group(0)}\n"
+    return save_idea_state(
+        issue,
+        "changes_requested",
+        "Changes requested by CEO",
+        f"## CEO decision: changes requested\n\nExpected changes:\n\n{feedback}",
+    )
+
+
+def project_data(slug: str) -> dict:
+    if not re.fullmatch(r"product-[a-z0-9-]{1,50}-\d+", slug):
+        raise DashboardError("Invalid project name.", 400)
+    issues = run_json(
+        ["issue", "list", "--repo", f"{OWNER}/{REPO}", "--state", "all", "--limit", "1000",
+         "--json", "number,title,url,body,state,createdAt,updatedAt,labels"]
+    )
+    issue = next(
+        (
+            item for item in issues
+            if isinstance(item, dict)
+            and (metadata := idea_metadata(item.get("body", "")))
+            and metadata.get("slug") == slug
+        ),
+        None,
+    )
+    if not issue:
+        raise DashboardError("No tracked idea is associated with this project.", 404)
+    metadata = idea_metadata(issue.get("body", "")) or {}
+    repo = run_json(["repo", "view", f"{OWNER}/{slug}", "--json", "name,url,description,createdAt,visibility"])
+    try:
+        runs = run_json(
+            ["run", "list", "--repo", f"{OWNER}/{slug}", "--limit", "10",
+             "--json", "databaseId,name,displayTitle,status,conclusion,createdAt,event,headBranch,url"]
+        )
+    except DashboardError as exc:
+        runs = {"error": str(exc)}
+    try:
+        pull_requests = run_json(
+            ["pr", "list", "--repo", f"{OWNER}/{slug}", "--state", "all", "--limit", "20",
+             "--json", "number,title,url,state,reviewDecision,createdAt,updatedAt,isDraft"]
+        )
+    except DashboardError as exc:
+        pull_requests = {"error": str(exc)}
+
+    docs: dict[str, str] = {}
+    for name in ("Idea-Report.md", "Next-Process.md", "Suggestions.md"):
+        try:
+            encoded = run_gh(["api", f"repos/{OWNER}/{slug}/contents/docs/{name}", "--jq", ".content"])
+            docs[name] = base64.b64decode(encoded.strip()).decode("utf-8")
+        except DashboardError as exc:
+            docs[name] = f"Document not available: {exc}"
+    record = idea_record(issue)
+    return {
+        "idea": record,
+        "metadata": metadata,
+        "repo": repo,
+        "runs": runs,
+        "pull_requests": pull_requests,
+        "documents": docs,
+        "expectations": record["expectations"],
+        "tracking_url": issue.get("url"),
+    }
 
 
 def start_claude_chat(question: str) -> str:
@@ -414,11 +841,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/": ("index.html", "text/html; charset=utf-8"),
             "/app.js": ("app.js", "text/javascript; charset=utf-8"),
             "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+            "/project.js": ("project.js", "text/javascript; charset=utf-8"),
+            "/project.css": ("project.css", "text/css; charset=utf-8"),
+            "/project.html": ("project.html", "text/html; charset=utf-8"),
         }
+        if re.fullmatch(r"/projects/product-[a-z0-9-]{1,50}-\d+", path):
+            path = "/project.html"
         if path.startswith("/api/"):
             try:
                 if path == "/api/dashboard":
                     self._send_json(dashboard_data())
+                elif re.fullmatch(r"/api/projects/product-[a-z0-9-]{1,50}-\d+", path):
+                    require_ceo_identity()
+                    self._send_json(project_data(path.rsplit("/", 1)[-1]))
                 else:
                     self._send_json({"error": "Not found."}, 404)
             except DashboardError as exc:
@@ -468,6 +903,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 if not pending or pending[0] < time.time():
                     raise DashboardError("Confirmation expired. Review the idea again.", 410)
                 self._send_json(create_issue(pending[1]), 201)
+            elif (match := re.fullmatch(r"/api/ideas/(\d+)/(approve|deny)", self.path)):
+                number = int(match.group(1))
+                if match.group(2) == "approve":
+                    self._send_json(approve_idea(number))
+                else:
+                    if not isinstance(payload, dict):
+                        raise DashboardError("Expected a JSON object.")
+                    self._send_json(deny_idea(number, payload.get("expectation")))
             elif self.path == "/api/chat":
                 if not isinstance(payload, dict) or not isinstance(payload.get("message"), str):
                     raise DashboardError("Enter a message for Claude.")

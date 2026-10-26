@@ -14,5 +14,5 @@ Revise pull request #$ARGUMENTS based on review feedback.
 5. Re-run the Reality Checker on the changed parts; update the CEO Summary.
 6. Commit (`docs: address CEO review on #$ARGUMENTS` or `fix: …` for code), push to the same branch (no force-push).
 7. Reply to each review comment saying what changed (`gh pr comment`), then re-request review from the CEO:
-   `gh pr edit $ARGUMENTS --add-reviewer nithubceoai`.
+   `gh pr edit $ARGUMENTS --add-reviewer nisarmohammadTPM`.
 8. Report a short "what changed" list.
