@@ -57,6 +57,13 @@
               <div class="field-meta"><span>Start simple. You can add details later.</span><span id="idea-count">0 / 5,000</span></div>
               <label for="idea-audience">Who is it for? <span class="optional">(optional)</span></label>
               <input id="idea-audience" name="audience" maxlength="500" placeholder="e.g. Independent shop owners">
+              <label for="idea-attachments">Knowledge base documents <span class="optional">(optional)</span></label>
+              <input id="idea-attachments" name="attachments" type="file" multiple
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/gif,image/webp">
+              <div id="attachment-list" class="attachment-list" aria-live="polite">
+                <span class="subtle">PDF, Word, or raster image files · up to 5 files, 8 MB each</span>
+              </div>
+              <p class="fine-print attachment-disclosure">Files stay on this PC while the idea awaits approval. After approval, they are copied into the private project repository’s <strong>Knowledge base/</strong> folder for discovery review. Treat uploaded files as sensitive; project agents may read them.</p>
               <div class="form-footer">
                 <span class="privacy-note">Submission creates a tracked idea. A private project and discovery workflow start only after you approve.</span>
                 <button class="button button-primary" id="preview-button" type="submit">Review idea <span aria-hidden="true">→</span></button>

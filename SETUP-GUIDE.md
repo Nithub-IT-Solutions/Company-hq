@@ -203,6 +203,12 @@ using GitHub CLI authenticated as the CEO. The organization project must exist b
    The GitHub organization plan must support branch protection for private repos. Choose **Deny / request changes** to
    enter and save the expectations on the tracking issue. Open a project name to see its documents,
    pull requests, and Actions runs.
+   You may attach up to five PDF, Word (`.doc`/`.docx`), PNG, JPEG, GIF, or WebP files (8 MB each,
+   24 MB total). File signatures are checked. While an idea awaits a decision, attachments remain on
+   this PC under `%LOCALAPPDATA%\CompanyHQ\dashboard\knowledge-base\ideas\`. Approval copies them to
+   `Knowledge base/` in the new private repo for discovery-agent review. Local copies are removed after
+   discovery starts and retained if setup fails so you can retry. Do not upload secrets or files you
+   are not authorized to share.
 4. For agent discovery to run, GitHub Actions must be enabled and the `CLAUDE_CODE_OAUTH_TOKEN` secret
    must be available to the new repository. Project repositories contain an approved-idea workflow
    that the dashboard starts only after your approval. The agent opens a pull request; it cannot approve

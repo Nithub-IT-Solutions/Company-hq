@@ -17,6 +17,7 @@ This repository is **not a deployed product application**. The dashboard is a sm
 - Adds GitHub labels, PR/issue templates, branch protection helpers, and Actions workflows.
 - Provides a product template to bootstrap future product repositories.
 - Offers a CEO dashboard for organization-wide visibility, idea intake, and read-only Claude questions about the repository.
+- Lets the CEO attach PDF, Word, and image reference files to an idea; approval places those files in the private project's `Knowledge base/` folder for discovery review.
 
 ## How the product process works
 
@@ -97,8 +98,9 @@ flowchart TB
 - **The local dashboard** is a Python HTTP server using only Python's standard library. The UI is static HTML, CSS, and JavaScript under `dashboard/web/`.
 - **The dashboard delegates GitHub requests to `gh`.** It expects the GitHub CLI to be signed in as `nisarmohammadTPM`; it deliberately removes token environment variables before running `gh`.
 - **Idea decisions provision project repos.** Dashboard submissions are tracked as Company HQ issues. Approving one creates a private `product-<slug>-<issue>` repository from `product-template/`, adds the `docs/Idea-Report.md`, `docs/Next-Process.md`, and `docs/Suggestions.md` records, configures CEO/code-owner branch protection, and dispatches the approved-idea discovery workflow. Denial/request-changes feedback is recorded in the issue, and the idea remains visible in the portfolio.
+- **Idea attachments follow the same approval boundary.** The dashboard accepts up to five PDF, Word (`.doc`/`.docx`), PNG, JPEG, GIF, or WebP files (8 MB each, 24 MB total). It validates file signatures and stores them under `%LOCALAPPDATA%\CompanyHQ\dashboard\knowledge-base\ideas\` on the dashboard PC while the idea awaits a decision. Files are copied into `Knowledge base/` in the private project repository only after approval; after discovery starts, the local copies are removed. If provisioning fails, local files are retained for a safe retry. Discovery agents are instructed to treat document contents as untrusted reference material. Do not upload secrets or documents you are not authorized to share.
 - **The portfolio includes legacy intake too.** Older Company HQ issues labeled `type:idea` or titled `Idea: ...` remain visible as manual-workflow entries; only dashboard-tracked ideas have dashboard approve/request-changes actions.
-- **Project pages show live GitHub state.** Open a project link in the dashboard to view its three documents, approval status, pull requests, and Actions runs. GitHub issues and repository contents remain the persistent source of truth; the dashboard does not keep a separate local database.
+- **Project pages show live GitHub state.** Open a project link in the dashboard to view its three documents, attached Knowledge base files, approval status, pull requests, and Actions runs. GitHub issues and repository contents remain the persistent source of truth; the dashboard does not keep a separate local database.
 - **Per-project agent setup** comes from the product template, including Claude Code settings, skills, and a manual `workflow_dispatch` discovery workflow. Starting that workflow requires GitHub Actions enabled and the `CLAUDE_CODE_OAUTH_TOKEN` organization/repository secret available to the new repo. Discovery proposes work in a PR; agents do not approve or merge.
 - **The dashboard's Claude chat is read-only.** It gives Claude a temporary copy of the repository (without `.git`, local Claude settings, environment files, or key files), disables shell/editing tools, and does not persist a Claude session.
 - **Product repos** are scaffolded from `product-template/`; their CI must be adapted to each product's actual language and build/test commands.

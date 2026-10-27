@@ -83,6 +83,15 @@ async function loadProject() {
     $("#doc-idea").textContent = data.documents["Idea-Report.md"] || "Not available.";
     $("#doc-next").textContent = data.documents["Next-Process.md"] || "Not available.";
     $("#doc-suggestions").textContent = data.documents["Suggestions.md"] || "Not available.";
+    const knowledgeBase = Array.isArray(data.knowledge_base) ? data.knowledge_base : [];
+    showList(
+      "#knowledge-base-list",
+      knowledgeBase,
+      data.knowledge_base?.error || "No knowledge base documents were attached to this idea.",
+      (file) => file.name,
+      (file) => `${(file.size / (1024 * 1024)).toFixed(1)} MB · Open private repository file`,
+      (file) => file.url,
+    );
     if (data.expectations) {
       $("#expectations-panel").hidden = false;
       $("#expectations-copy").textContent = data.expectations;

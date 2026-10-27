@@ -4,11 +4,13 @@ const issueForm = $("#idea-form");
 const titleInput = $("#idea-title");
 const ideaInput = $("#idea-description");
 const audienceInput = $("#idea-audience");
+const attachmentInput = $("#idea-attachments");
 const confirmOverlay = $("#confirm-overlay");
 const previewPanel = $("#idea-preview");
 const confirmButton = $("#confirm-submit");
 const toast = $("#toast");
 let confirmationId = null;
+let confirmationFiles = [];
 let toastTimer = null;
 let decisionTarget = null;
 let decisionMode = null;
@@ -26,9 +28,11 @@ function showToast(message, isError = false) {
 }
 
 async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
   const response = await fetch(path, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `Request failed (${response.status}).`);
@@ -252,6 +256,12 @@ function renderIdeas(ideas) {
       expectation.textContent = `CEO expects: ${idea.expectations}`;
       main.append(expectation);
     }
+    if (idea.attachments?.length) {
+      const attachments = document.createElement("p");
+      attachments.className = "idea-feedback";
+      attachments.textContent = `Knowledge base · ${idea.attachments.length} document${idea.attachments.length === 1 ? "" : "s"}`;
+      main.append(attachments);
+    }
     const status = document.createElement("span");
     status.className = `status-pill status-${idea.status}`;
     status.textContent = statusLabels[idea.status] || idea.status.replaceAll("_", " ");
@@ -380,7 +390,10 @@ async function submitDecision() {
     });
     closeDecision();
     if (mode === "approve" && result.repo_url) {
-      showToast(`Private project created: ${result.repo_name}. Discovery workflow started.`);
+      showToast(
+        result.warning || `Private project created: ${result.repo_name}. Discovery workflow started.`,
+        Boolean(result.warning),
+      );
     } else {
       showToast("Your expectations were saved to the idea's decision history.");
     }
@@ -395,6 +408,7 @@ async function submitDecision() {
 function closeConfirmation() {
   confirmOverlay.hidden = true;
   confirmationId = null;
+  confirmationFiles = [];
   confirmButton.disabled = false;
   confirmButton.textContent = "Confirm and create issue";
 }
@@ -402,6 +416,12 @@ function closeConfirmation() {
 issueForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = $("#preview-button");
+  const files = Array.from(attachmentInput.files || []);
+  if (files.length > 5 || files.some((file) => file.size > 8 * 1024 * 1024) ||
+      files.reduce((total, file) => total + file.size, 0) > 24 * 1024 * 1024) {
+    showToast("Attach up to 5 files, no larger than 8 MB each or 24 MB combined.", true);
+    return;
+  }
   button.disabled = true;
   try {
     const preview = await api("/api/ideas/preview", {
@@ -413,12 +433,19 @@ issueForm.addEventListener("submit", async (event) => {
       }),
     });
     confirmationId = preview.confirmation;
+    confirmationFiles = files;
     previewPanel.replaceChildren();
     const title = document.createElement("h3");
     title.textContent = preview.title;
     const body = document.createElement("pre");
     body.textContent = preview.body;
     previewPanel.append(title, body);
+    if (files.length) {
+      const fileSummary = document.createElement("p");
+      fileSummary.className = "preview-attachments";
+      fileSummary.textContent = `Knowledge base documents: ${files.map((file) => file.name).join(", ")}`;
+      previewPanel.append(fileSummary);
+    }
     confirmOverlay.hidden = false;
     $("#confirm-submit").focus();
   } catch (error) {
@@ -433,13 +460,17 @@ async function confirmIdea() {
   confirmButton.disabled = true;
   confirmButton.textContent = "Creating issue…";
   try {
+    const form = new FormData();
+    form.append("confirmation", confirmationId);
+    confirmationFiles.forEach((file) => form.append("attachments", file, file.name));
     const result = await api("/api/ideas/confirm", {
       method: "POST",
-      body: JSON.stringify({ confirmation: confirmationId }),
+      body: form,
     });
     closeConfirmation();
     issueForm.reset();
     $("#idea-count").textContent = "0 / 5,000";
+    attachmentInput.dispatchEvent(new Event("change"));
     const notice = $("#idea-result");
     notice.replaceChildren();
     notice.hidden = false;
@@ -515,6 +546,24 @@ $("#chat-form").addEventListener("submit", async (event) => {
 });
 
 $("#refresh-button").addEventListener("click", refreshDashboard);
+attachmentInput.addEventListener("change", () => {
+  const list = $("#attachment-list");
+  list.replaceChildren();
+  const files = Array.from(attachmentInput.files || []);
+  if (!files.length) {
+    const hint = document.createElement("span");
+    hint.className = "subtle";
+    hint.textContent = "PDF, Word, or raster image files · up to 5 files, 8 MB each";
+    list.append(hint);
+    return;
+  }
+  files.forEach((file) => {
+    const row = document.createElement("span");
+    row.className = "attachment-chip";
+    row.textContent = `${file.name} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+    list.append(row);
+  });
+});
 $("#submit-decision").addEventListener("click", submitDecision);
 $("#cancel-decision").addEventListener("click", closeDecision);
 $("#close-decision").addEventListener("click", closeDecision);
