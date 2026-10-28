@@ -89,6 +89,7 @@ def run_gh(args: list[str], timeout: int = 25) -> str:
             env=clean_gh_environment(),
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=timeout,
             check=False,
         )

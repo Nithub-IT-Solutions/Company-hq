@@ -21,6 +21,7 @@ from server import (
     deny_idea,
     replace_idea_metadata,
     repo_slug,
+    run_gh,
     validate_idea,
     validate_attachments,
     save_idea_attachments,
@@ -29,6 +30,15 @@ from server import (
 
 
 class ValidateIdeaTests(unittest.TestCase):
+    def test_github_cli_output_uses_utf8(self):
+        output = "Daisy’s companion"
+        with patch("server.subprocess.run") as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = output
+            self.assertEqual(run_gh(["issue", "list"]), output)
+
+        self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
+
     def test_normalizes_idea_fields(self):
         result = validate_idea(
             {"title": "  Invoice helper  ", "idea": "  Remind owners to invoice.  ", "audience": ""}
