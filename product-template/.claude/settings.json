@@ -36,6 +36,7 @@
       "Bash(gh pr checks*)",
       "Bash(gh project *)",
       "Bash(gh label list*)",
+      "Agent",
       "WebSearch",
       "WebFetch"
     ]
