@@ -1,5 +1,17 @@
 # Local-only Claude settings (holds the bot token) - NEVER commit
 .claude/settings.local.json
+.claude/agents/product-trend-researcher.md
+.claude/agents/business-strategist.md
+.claude/agents/design-ux-researcher.md
+.claude/agents/product-feedback-synthesizer.md
+.claude/agents/specialized-pricing-analyst.md
+.claude/agents/finance-financial-analyst.md
+.claude/agents/marketing-growth-hacker.md
+.claude/agents/support-legal-compliance-checker.md
+.claude/agents/engineering-software-architect.md
+.claude/agents/testing-reality-checker.md
+.claude/agents/AGENCY_AGENTS_LICENSE.txt
+/agency-agents/
 .env
 .env.*
 !.env.example

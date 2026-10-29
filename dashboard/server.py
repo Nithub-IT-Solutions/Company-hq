@@ -53,6 +53,7 @@ IDEA_STATUSES = {
     "starting_discovery",
     "discovery",
     "discovery_start_failed",
+    "discovery_failed",
 }
 
 SECRET_PATTERNS = (
@@ -243,18 +244,20 @@ def dashboard_data() -> dict:
     else:
         workflow_errors = 1
     workflow_runs.sort(key=lambda run: run.get("createdAt", ""), reverse=True)
-    data["workflow_runs"] = workflow_runs[:10]
     data["workflow_errors"] = workflow_errors
     idea_issues = data.get("idea_issues", [])
-    data["ideas"] = (
-        [
+    if isinstance(idea_issues, list):
+        ideas = [
             idea_record(issue)
             for issue in idea_issues
             if isinstance(issue, dict) and is_tracked_idea(issue)
         ]
-        if isinstance(idea_issues, list)
-        else {"error": idea_issues.get("error", "Could not load tracked ideas.")}
-    )
+        for idea in ideas:
+            apply_discovery_run_status(idea, workflow_runs)
+        data["ideas"] = ideas
+    else:
+        data["ideas"] = {"error": idea_issues.get("error", "Could not load tracked ideas.")}
+    data["workflow_runs"] = workflow_runs[:10]
     data.pop("idea_issues", None)
     data.pop("repositories", None)
 
@@ -267,6 +270,46 @@ def dashboard_data() -> dict:
         }
     )
     return data
+
+
+def apply_discovery_run_status(idea: dict, workflow_runs: list[dict]) -> None:
+    if idea.get("status") not in ("starting_discovery", "discovery") or not idea.get("repo_name"):
+        return
+    runs = [
+        run
+        for run in workflow_runs
+        if run.get("repository") == f"{OWNER}/{idea['repo_name']}"
+        and run.get("name") == "Approved idea discovery"
+        and run.get("event") == "workflow_dispatch"
+    ]
+    if not runs:
+        return
+    latest = max(runs, key=lambda run: run.get("createdAt", ""))
+    idea["discovery_run_url"] = latest.get("url", "")
+    if latest.get("status") != "completed":
+        idea["status_detail"] = "The approved Discovery workflow is running."
+    elif latest.get("conclusion") == "success":
+        idea["status_detail"] = "Discovery workflow completed. Review the project page for its Gate 1 pull request."
+    else:
+        idea["status"] = "discovery_failed"
+        idea["status_detail"] = "Discovery workflow failed. Review the latest Actions run before retrying."
+
+
+def discovery_workflow_failed(slug: str) -> bool:
+    runs = run_json(
+        [
+            "run", "list", "--repo", f"{OWNER}/{slug}", "--workflow", "idea-discovery.yml",
+            "--limit", "1", "--json", "status,conclusion,event",
+        ],
+        timeout=20,
+    )
+    return bool(
+        isinstance(runs, list)
+        and runs
+        and runs[0].get("event") == "workflow_dispatch"
+        and runs[0].get("status") == "completed"
+        and runs[0].get("conclusion") in ("failure", "cancelled", "timed_out")
+    )
 
 
 def validate_idea(payload: object) -> dict[str, str]:
@@ -795,9 +838,17 @@ def create_issue(idea: dict[str, str], files: list[dict] | None = None) -> dict[
 def approve_idea(number: int) -> dict:
     require_ceo_identity()
     issue = read_idea(number)
-    if issue["metadata"]["status"] not in (
+    status = issue["metadata"]["status"]
+    retryable_statuses = (
         "pending", "changes_requested", "provisioning_failed", "discovery_start_failed",
-    ):
+    )
+    if status in ("discovery", "discovery_failed"):
+        slug = issue["metadata"].get("slug") or repo_slug(
+            issue["title"].removeprefix("Idea: "), number
+        )
+        if not discovery_workflow_failed(slug):
+            raise DashboardError("Discovery is not in a failed state and cannot be retried yet.", 409)
+    elif status not in retryable_statuses:
         raise DashboardError("This idea is not waiting for an approval decision.", 409)
     idea_match = re.search(r"## Idea\n\n(.*?)\n\n## Intended audience", issue["body"], re.S)
     if not idea_match:
@@ -942,6 +993,8 @@ def project_data(slug: str) -> dict:
             ["run", "list", "--repo", f"{OWNER}/{slug}", "--limit", "10",
              "--json", "databaseId,name,displayTitle,status,conclusion,createdAt,event,headBranch,url"]
         )
+        for run in runs:
+            run["repository"] = f"{OWNER}/{slug}"
     except DashboardError as exc:
         runs = {"error": str(exc)}
     try:
@@ -978,6 +1031,8 @@ def project_data(slug: str) -> dict:
         else:
             knowledge_base = {"error": str(exc)}
     record = idea_record(issue)
+    if isinstance(runs, list):
+        apply_discovery_run_status(record, runs)
     return {
         "idea": record,
         "metadata": metadata,

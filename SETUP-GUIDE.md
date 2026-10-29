@@ -8,7 +8,7 @@ Commands marked **PowerShell** run in Windows PowerShell. Commands marked **Git 
 | Role | GitHub account | Does what |
 |---|---|---|
 | CEO (you) | your normal account, **Owner** of `Nithub-IT-Solutions` | submits ideas, reviews and **approves and merges** gate PRs and code PRs |
-| Agents | a second account, e.g. `nithubceoai`, **Member with Write** | commits, pushes branches, opens PRs, comments. Can never merge to `main` |
+| Agents | `nithubceoai`, **Member with Write** | commits, pushes branches, opens PRs, comments. Can never merge to `main` |
 | Claude GitHub App | `claude[bot]` | automatic PR reviews, answers `@claude` comments |
 
 > **Why a bot account?** GitHub never lets the author of a PR approve their own PR. If the agents used *your* login, every PR would be "yours" and you could not approve it. Real companies use a service account for automation for the same reason.
@@ -42,7 +42,7 @@ Commands marked **PowerShell** run in Windows PowerShell. Commands marked **Git 
 
 ## Part B — Create the bot account (10 min)
 
-1. Sign out of GitHub in a private browser window and **sign up** for a new account, e.g. `nithubceoai`.
+1. Sign in to the existing GitHub bot account **`nithubceoai`**. Do not use the CEO account to create the bot token.
    Gmail tip: `yourname+bot@gmail.com` delivers to your normal inbox and counts as a separate email for GitHub.
 2. As the CEO: go to **github.com/orgs/Nithub-IT-Solutions/people → Invite member** → `nithubceoai` → role **Member**. Accept the invite in the bot's browser window.
 3. As the CEO: give members Write access to every repo, now and future:
@@ -55,7 +55,7 @@ Commands marked **PowerShell** run in Windows PowerShell. Commands marked **Git 
    - Organization permissions: **Projects** Read and write
    - Expiration: 90 days (set a reminder to renew)
    - Copy the token (starts with `github_pat_`). **Don't paste it anywhere except Part H.**
-5. As the bot: go to **Settings → Emails** and copy the `…@users.noreply.github.com` address (used for commits).
+5. The bot commit address is `347468245+nithubceoai@users.noreply.github.com`.
 
 ---
 
@@ -151,13 +151,13 @@ To add more specialists later, add a line to `setup/agency-roster.txt` (the file
    ```powershell
    claude setup-token
    ```
-   Copy the token it prints.
-3. Save it as an **organization secret** so every product repo gets it. In **Git Bash**:
+   Copy the complete token it prints. This is a Claude OAuth credential, not a GitHub token.
+3. Save it as an **organization secret** so product repos can use it. In **Git Bash**, signed in as the CEO:
    ```bash
    gh secret set CLAUDE_CODE_OAUTH_TOKEN --org Nithub-IT-Solutions --visibility all
    # paste the token when asked
    ```
-   (Using an API key instead? Name the secret `ANTHROPIC_API_KEY` and change `claude_code_oauth_token:` to `anthropic_api_key:` in both workflow files.)
+   Confirm the organization secret's repository access includes the product repositories. Never put this token in `.claude/settings.local.json`; that file is for the GitHub bot token. The safe credential-only workflow must accept the secret before full Discovery or automated reviews can authenticate.
 4. The workflows are already in `.github/workflows/`:
    - `claude-code-review.yml` reviews every PR automatically with inline comments.
    - `claude.yml` answers when anyone writes `@claude …` in an issue or PR comment.
@@ -169,15 +169,17 @@ To add more specialists later, add a line to `setup/agency-roster.txt` (the file
 
 ## Part H — Make agents work as the bot (5 min)
 
-In VS Code, open the `Company-hq` folder, copy `.claude/settings.local.json.example` to `.claude/settings.local.json`, and fill in:
-- `GH_TOKEN` → the bot's fine-grained token from Part B
-- `BOT_GITHUB_USERNAME` → `nithubceoai`
-- `BOT_NOREPLY_EMAIL` → the bot's noreply email
+In VS Code, open the `Company-hq` folder and copy `.claude/settings.local.json.example` to `.claude/settings.local.json`. Replace only the `GH_TOKEN` placeholder with the bot's fine-grained token from Part B. The example already sets the Git author and committer to `nithubceoai` and its noreply email.
 
-`settings.local.json` is in `.gitignore`, so it is never committed. Claude Code now runs `git` and `gh` as the bot. Your own terminal stays signed in as you.
-Do the same in each product repo after `/kickoff`.
+`settings.local.json` is in `.gitignore`, so it is never committed. Do not add the bot token to your global environment or run `gh auth login` as the bot; the dashboard must keep using the CEO's separate `gh` login. Claude Code's repository-local environment uses the bot token, while your ordinary terminal and dashboard stay signed in as the CEO. Do the same in each product repo after `/kickoff`.
 
-Check it: in Claude Code, ask "run `gh api user --jq .login`". It must print `nithubceoai`.
+Check both identities and the local Claude login from PowerShell:
+```powershell
+.\scripts\check-connections.ps1
+```
+The script prints only account names and pass/fail results, never tokens. The CEO check must return `nisarmohammadTPM`; the bot-token check must return `nithubceoai`; Claude Code must report a Claude.ai login. A bot-token HTTP 401 means replace `GH_TOKEN` with a fresh fine-grained token created while signed into `nithubceoai`, then rerun the check. This local check does not validate the separate Actions `CLAUDE_CODE_OAUTH_TOKEN`.
+
+The agency specialists are installed locally into `~/.claude/agents` by Part F. In product repositories, the Discovery workflow also checks out a pinned agency-agents revision and installs the ten required specialist definitions for that run. It launches the nine researchers in parallel, then invokes Reality Checker and CEO Liaison for review and synthesis. No local profile or unpinned third-party script is required on the runner.
 
 ---
 
@@ -212,7 +214,10 @@ using GitHub CLI authenticated as the CEO. The organization project must exist b
 4. For agent discovery to run, GitHub Actions must be enabled and the `CLAUDE_CODE_OAUTH_TOKEN` secret
    must be available to the new repository. Project repositories contain an approved-idea workflow
    that the dashboard starts only after your approval. The agent opens a pull request; it cannot approve
-   or merge that PR. A failure appears in the dashboard status and GitHub Actions.
+   or merge that PR. Discovery delegates its nine research files to the pinned agency specialist profiles,
+   then runs Reality Checker and CEO Liaison before opening Gate 1. A failure appears in the dashboard
+   status and GitHub Actions; the dashboard links the failed run and enables retry only after confirming
+   the latest Discovery run failed.
 5. Claude chat is read-only. It sends your question and a temporary repository snapshot to Claude; local
    settings, `.env` files, keys, and Git history are excluded. Stop the server with **Ctrl+C** in the
    PowerShell window.

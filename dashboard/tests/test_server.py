@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server import (
     DashboardError,
     DashboardHandler,
+    apply_discovery_run_status,
     approve_idea,
     copy_idea_attachments_to_project,
     idea_marker,
@@ -19,6 +20,7 @@ from server import (
     is_tracked_idea,
     issue_body,
     deny_idea,
+    discovery_workflow_failed,
     replace_idea_metadata,
     repo_slug,
     run_gh,
@@ -112,6 +114,51 @@ class ValidateIdeaTests(unittest.TestCase):
         self.assertEqual(record["repo_url"], "https://github.com/Nithub-IT-Solutions/product-invoice-helper-12")
         self.assertEqual(record["status"], "discovery")
 
+    def test_completed_discovery_failure_is_visible_with_run_link(self):
+        idea = {"status": "discovery", "repo_name": "product-invoice-helper-12"}
+        runs = [
+            {
+                "repository": "Nithub-IT-Solutions/product-invoice-helper-12",
+                "name": "Approved idea discovery",
+                "event": "workflow_dispatch",
+                "status": "completed",
+                "conclusion": "failure",
+                "createdAt": "2026-10-28T12:00:00Z",
+                "url": "https://github.com/Nithub-IT-Solutions/product-invoice-helper-12/actions/runs/99",
+            }
+        ]
+
+        apply_discovery_run_status(idea, runs)
+
+        self.assertEqual(idea["status"], "discovery_failed")
+        self.assertIn("failed", idea["status_detail"])
+        self.assertEqual(idea["discovery_run_url"], runs[0]["url"])
+
+    def test_non_discovery_runs_do_not_change_idea_status(self):
+        idea = {"status": "discovery", "repo_name": "product-invoice-helper-12"}
+        runs = [
+            {
+                "repository": "Nithub-IT-Solutions/product-invoice-helper-12",
+                "name": "Build Test",
+                "event": "push",
+                "status": "completed",
+                "conclusion": "failure",
+            }
+        ]
+
+        apply_discovery_run_status(idea, runs)
+
+        self.assertEqual(idea["status"], "discovery")
+        self.assertNotIn("discovery_run_url", idea)
+
+    def test_latest_discovery_run_controls_retry_eligibility(self):
+        with patch(
+            "server.run_json",
+            return_value=[{"event": "workflow_dispatch", "status": "completed", "conclusion": "failure"}],
+        ) as run:
+            self.assertTrue(discovery_workflow_failed("product-invoice-helper-12"))
+        self.assertIn("idea-discovery.yml", run.call_args.args[0])
+
     def test_manual_idea_issues_remain_visible_without_dashboard_actions(self):
         issue = {
             "number": 14,
@@ -188,6 +235,38 @@ class ValidateIdeaTests(unittest.TestCase):
         create_repo.assert_called_once()
         configure_repo.assert_called_once_with("product-invoice-helper-12")
         self.assertIn("workflow", run.call_args.args[0])
+        self.assertIn("idea-discovery.yml", run.call_args.args[0])
+
+    def test_approval_retries_only_after_failed_discovery(self):
+        body = issue_body({"title": "Invoice helper", "idea": "Remind owners.", "audience": "Shops"})
+        issue = {
+            "number": 12,
+            "title": "Idea: Invoice helper",
+            "url": "https://github.com/Nithub-IT-Solutions/Company-hq/issues/12",
+            "body": body,
+            "state": "OPEN",
+            "metadata": {
+                **idea_metadata(body),
+                "status": "discovery",
+                "slug": "product-invoice-helper-12",
+            },
+        }
+        with (
+            patch("server.require_ceo_identity"),
+            patch("server.read_idea", return_value=issue),
+            patch("server.discovery_workflow_failed", return_value=True) as failed,
+            patch("server.save_idea_state", side_effect=lambda item, status, *_: {"status": status}),
+            patch("server.repository_exists", return_value=True),
+            patch("server.project_repository_is_bootstrapped", return_value=True),
+            patch("server.create_project_repository") as create_repo,
+            patch("server.configure_project_repository"),
+            patch("server.run_gh") as run,
+        ):
+            result = approve_idea(12)
+
+        self.assertEqual(result["status"], "discovery")
+        failed.assert_called_once_with("product-invoice-helper-12")
+        create_repo.assert_not_called()
         self.assertIn("idea-discovery.yml", run.call_args.args[0])
 
 
