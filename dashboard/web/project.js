@@ -8,6 +8,7 @@ const statusLabels = {
   starting_discovery: "Starting discovery",
   discovery: "Discovery in progress",
   discovery_start_failed: "Discovery needs attention",
+  discovery_failed: "Discovery run failed",
 };
 
 async function api(path) {

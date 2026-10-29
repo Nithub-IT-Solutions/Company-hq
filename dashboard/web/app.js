@@ -217,6 +217,7 @@ const statusLabels = {
   starting_discovery: "Starting discovery",
   discovery: "Discovery in progress",
   discovery_start_failed: "Discovery needs attention",
+  discovery_failed: "Discovery run failed",
 };
 
 function renderIdeas(ideas) {
@@ -273,6 +274,14 @@ function renderIdeas(ideas) {
       detail.textContent = idea.status_detail;
       state.append(detail);
     }
+    if (idea.discovery_run_url) {
+      const runLink = document.createElement("a");
+      runLink.href = idea.discovery_run_url;
+      runLink.target = "_blank";
+      runLink.rel = "noreferrer";
+      runLink.textContent = "Open latest Discovery run ↗";
+      state.append(runLink);
+    }
     const project = document.createElement("div");
     project.className = "idea-row-project";
     if (idea.repo_name) {
@@ -285,13 +294,15 @@ function renderIdeas(ideas) {
     }
     const actions = document.createElement("div");
     actions.className = "idea-row-actions";
-    if (["pending", "changes_requested", "provisioning_failed", "discovery_start_failed"].includes(idea.status)) {
+    if (["pending", "changes_requested", "provisioning_failed", "discovery_start_failed", "discovery_failed"].includes(idea.status)) {
       const approve = document.createElement("button");
       approve.type = "button";
       approve.className = "button button-primary button-small";
-      approve.textContent = ["provisioning_failed", "discovery_start_failed"].includes(idea.status)
-        ? "Retry setup"
-        : "Approve";
+      approve.textContent = idea.status === "discovery_failed"
+        ? "Retry discovery"
+        : ["provisioning_failed", "discovery_start_failed"].includes(idea.status)
+          ? "Retry setup"
+          : "Approve";
       approve.addEventListener("click", () => openDecision(idea, "approve"));
       const deny = document.createElement("button");
       deny.type = "button";
@@ -337,17 +348,22 @@ function openDecision(idea, mode) {
   decisionTarget = idea;
   decisionMode = mode;
   const denying = mode === "deny";
-  const retry = mode === "approve" &&
+  const retryDiscovery = mode === "approve" && idea.status === "discovery_failed";
+  const retrySetup = mode === "approve" &&
     ["provisioning_failed", "discovery_start_failed"].includes(idea.status);
   $("#decision-title").textContent = denying
     ? "Request changes to this idea?"
-    : retry
+    : retryDiscovery
+      ? "Retry Discovery?"
+      : retrySetup
       ? "Retry project setup?"
       : "Approve this idea?";
   $("#decision-description").textContent = denying
     ? "Your expectations will be saved on the tracking issue. " +
       "The idea stays in the portfolio and can be reviewed again."
-    : retry
+    : retryDiscovery
+      ? "The latest Discovery run failed. The dashboard will reuse the existing private project and start a fresh run."
+      : retrySetup
       ? "The previous attempt failed. The dashboard will reuse a complete project repository if one exists. " +
         "It will not overwrite an incomplete repository."
       : "This creates a private project repository and starts discovery. " +

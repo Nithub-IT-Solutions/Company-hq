@@ -141,7 +141,7 @@ textarea { resize: vertical; }
 .button-small { min-height: 31px; padding: 0 10px; font-size: 10px; }
 .status-pill { justify-self: start; padding: 6px 9px; border-radius: 999px; background: #f0f3f8; color: #687994; font-size: 9px; font-weight: 700; white-space: nowrap; }
 .status-pending { background: #fff5df; color: #92651e; }
-.status-changes_requested, .status-provisioning_failed, .status-discovery_start_failed { background: #fff0ed; color: #a74d3c; }
+.status-changes_requested, .status-provisioning_failed, .status-discovery_start_failed, .status-discovery_failed { background: #fff0ed; color: #a74d3c; }
 .status-discovery, .status-starting_discovery { background: #edf2ff; color: #395bb3; }
 .status-provisioning { background: #f1efff; color: #6552a6; }
 .full-button { width: 100%; margin-top: 5px; }

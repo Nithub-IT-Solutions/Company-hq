@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   discovery:
+    if: github.actor == 'nisarmohammadTPM'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
